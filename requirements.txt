@@ -1,0 +1,7 @@
+numpy-financial
+pandas
+plotly
+pypdf
+google-generativeai
+requests
+beautifulsoup4
