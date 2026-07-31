@@ -51,9 +51,9 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         
         prompt = f"""
         Du bist ein Immobilien-Experte. Analysiere den folgenden Exposé-Text und extrahiere die Daten als valides JSON.
-        Antworte AUSSCHLIESSLICH mit dem JSON-Objekt, ohne Markdown-Codeblock oder zusätzlichen Text.
+        Verwende 0 oder "Unbekannt", falls ein Wert im Text nicht vorhanden ist.
 
-        Geforderte Felder (Verwende 0 oder "Unbekannt" falls nicht vorhanden):
+        Geforderte Felder:
         {{
             "kaufpreis": float,
             "wohnflaeche": float,
@@ -65,11 +65,24 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         }}
 
         Exposé-Text:
-        {text[:4000]}
+        {text[:6000]}
         """
         
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        # Versuch mit dem aktuellen Standard-Modell
+        try:
+            model = genai.GenerativeModel(
+                'gemini-2.5-flash',
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+        except Exception:
+            # Fallback auf 'gemini-flash' falls die Versionsbezeichnung abweicht
+            model = genai.GenerativeModel(
+                'gemini-flash',
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+
         cleaned_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(cleaned_json)
     except Exception as e:
