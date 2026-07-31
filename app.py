@@ -21,7 +21,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 st.markdown("""
 <style>
     .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -68,34 +67,15 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        # Kaskade gängiger Modellnamen zur maximalen Kompatibilität
-        candidate_models = [
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-            'gemini-1.5-pro-latest',
-            'gemini-2.0-flash-exp',
-            'gemini-pro'
-        ]
-        
-        response = None
-        last_err = None
-        
-        for model_name in candidate_models:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    break
-            except Exception as e:
-                last_err = e
-                continue
+        # Aktuelles stabiles Gemini Modell
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
                 
         if not response or not response.text:
-            st.error(f"Kein passendes Gemini-Modell erreichbar: {last_err}")
+            st.error("Keine Antwort von der KI erhalten.")
             return None
 
         cleaned_json = response.text.replace('```json', '').replace('```', '').strip()
-        # Sanitize JSON if leading text exists
         start_idx = cleaned_json.find('{')
         end_idx = cleaned_json.rfind('}')
         if start_idx != -1 and end_idx != -1:
@@ -225,7 +205,6 @@ def calc_10y_projection(data):
 # -----------------------------------------------------------------------------
 # SIDEBAR / INPUTS & SESSION-STATE API-KEY
 # -----------------------------------------------------------------------------
-# Speichert den API Key dauerhaft in der Session
 if "gemini_api_key" not in st.session_state:
     st.session_state["gemini_api_key"] = ""
 
