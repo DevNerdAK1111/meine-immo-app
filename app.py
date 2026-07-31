@@ -68,22 +68,39 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        # Versuch mit dem aktuellen Standard-Modell
-        try:
-            model = genai.GenerativeModel(
-                'gemini-2.5-flash',
-                generation_config={"response_mime_type": "application/json"}
-            )
-            response = model.generate_content(prompt)
-        except Exception:
-            # Fallback auf 'gemini-flash' falls die Versionsbezeichnung abweicht
-            model = genai.GenerativeModel(
-                'gemini-flash',
-                generation_config={"response_mime_type": "application/json"}
-            )
-            response = model.generate_content(prompt)
+        # Kaskade gängiger Modellnamen zur maximalen Kompatibilität
+        candidate_models = [
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro-latest',
+            'gemini-2.0-flash-exp',
+            'gemini-pro'
+        ]
+        
+        response = None
+        last_err = None
+        
+        for model_name in candidate_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    break
+            except Exception as e:
+                last_err = e
+                continue
+                
+        if not response or not response.text:
+            st.error(f"Kein passendes Gemini-Modell erreichbar: {last_err}")
+            return None
 
         cleaned_json = response.text.replace('```json', '').replace('```', '').strip()
+        # Sanitize JSON if leading text exists
+        start_idx = cleaned_json.find('{')
+        end_idx = cleaned_json.rfind('}')
+        if start_idx != -1 and end_idx != -1:
+            cleaned_json = cleaned_json[start_idx:end_idx+1]
+            
         return json.loads(cleaned_json)
     except Exception as e:
         st.error(f"Fehler bei der KI-Analyse: {str(e)}")
@@ -98,7 +115,6 @@ def calc_10y_projection(data):
     nk_proz = grwt_rate + data['notar_proz'] + data['makler_proz']
     nk_abs = kp * nk_proz + data['sonst_nk']
     
-    # Disagio
     disagio_betrag = (kp + san + nk_abs) * (1 - data['ek_quote']) * data['hb_share'] * data['disagio_proz']
     tot_inv = kp + san + nk_abs + disagio_betrag
     
@@ -108,7 +124,6 @@ def calc_10y_projection(data):
     hb_loan = fk_tot * data['hb_share']
     kfw_loan = max(0, data['kfw_amt'] - data['kfw_grant'])
     
-    # Yearly Debt Service
     hb_rate = hb_loan * (data['hb_zins'] + data['hb_tilg'])
     kfw_rate = kfw_loan * (data['kfw_zins'] + data['kfw_tilg']) if kfw_loan > 0 else 0
     annu_tot = hb_rate + kfw_rate
@@ -123,7 +138,6 @@ def calc_10y_projection(data):
     current_sqm_rent = data['ist_sqm']
     
     for yr in range(1, 11):
-        # Rent progression
         if yr >= data['adj_year']:
             if yr == data['adj_year']:
                 current_sqm_rent = data['target_sqm']
@@ -136,14 +150,12 @@ def calc_10y_projection(data):
         
         op_costs = ((data['hausgeld'] * 12) + (data['inst_sqm'] * data['qm']) + (data['mgt_monat'] * 12)) * ((1 + data['cost_inc']) ** (yr - 1))
         
-        # CapEx
         capex = 0
         if yr == 3: capex = data['capex_j3']
         if yr == 6: capex = data['capex_j6']
         
         noi = net_rent - op_costs - capex
         
-        # Interest & Principal
         zins_hb = restschuld_hb * data['hb_zins']
         tilg_hb = (hb_loan * data['hb_tilg']) if yr > data['grace_years'] else 0
         
@@ -156,7 +168,6 @@ def calc_10y_projection(data):
         
         cf_v_st = noi - zins_tot - tilg_tot - sondertilg
         
-        # AfA Calculation
         if data['afa_model'] == "2_Degressiv_§7_5a":
             afa_val = (afa_base - (yr - 1) * (afa_base * 0.05)) * 0.05
         elif data['afa_model'] == "3_Sonder_AfA_§7b":
@@ -168,7 +179,6 @@ def calc_10y_projection(data):
             
         disagio_deduct = disagio_betrag if yr == 1 else 0
         
-        # Taxable Income
         if yr == 1 and san <= (afa_base * 0.15):
             taxable_inc = noi - zins_tot - afa_val - disagio_deduct - san
         else:
@@ -204,7 +214,6 @@ def calc_10y_projection(data):
         
     df = pd.DataFrame(rows)
     
-    # IRR Calculation
     cf_stream = [-ek_abs] + list(df['CF n. St.'][:-1]) + [df['CF n. St.'].iloc[-1] + (df['Objektwert'].iloc[-1] * (1 - data['exit_cost']) - df['Restschuld'].iloc[-1])]
     try:
         irr = npf.irr(cf_stream)
@@ -214,21 +223,34 @@ def calc_10y_projection(data):
     return df, tot_inv, ek_abs, fk_tot, irr, afa_base
 
 # -----------------------------------------------------------------------------
-# SIDEBAR / INPUTS & AI IMPORT
+# SIDEBAR / INPUTS & SESSION-STATE API-KEY
 # -----------------------------------------------------------------------------
+# Speichert den API Key dauerhaft in der Session
+if "gemini_api_key" not in st.session_state:
+    st.session_state["gemini_api_key"] = ""
+
 with st.sidebar:
     st.title("🏢 ImmoAnalyse Pro")
     st.caption("Institutional Investment & AI Suite")
     
     st.subheader("🤖 KI-Import & Data Extractor")
-    api_key = st.text_input("Gemini API Key", type="password", help="Kostenlos auf aistudio.google.com erstellen")
+    
+    api_key_input = st.text_input(
+        "Gemini API Key",
+        value=st.session_state["gemini_api_key"],
+        type="password",
+        help="Wird für die gesamte Sitzung im Browser gespeichert!"
+    )
+    if api_key_input:
+        st.session_state["gemini_api_key"] = api_key_input
+        
     uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
     
     ai_data = None
-    if uploaded_pdf and api_key:
+    if uploaded_pdf and st.session_state["gemini_api_key"]:
         if st.button("✨ Exposé per KI analysieren"):
             with st.spinner("Lese PDF & strukturiere Daten..."):
-                ai_data = analyze_pdf_with_gemini(api_key, uploaded_pdf)
+                ai_data = analyze_pdf_with_gemini(st.session_state["gemini_api_key"], uploaded_pdf)
                 if ai_data:
                     st.success("Daten erfolgreich extrahiert!")
 
@@ -284,7 +306,6 @@ with st.sidebar:
     wacc = st.number_input("WACC / Diskontierung (%)", value=6.0) / 100
     exit_cost = st.number_input("Verkaufsnebenkosten (%)", value=2.0) / 100
 
-# Pack inputs into dict
 input_data = {
     'kaufpreis': kaufpreis, 'sanierung': sanierung, 'bundesland': bundesland,
     'notar_proz': notar_p, 'makler_proz': makler_p, 'sonst_nk': sonst_nk,
@@ -308,7 +329,6 @@ df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data
 st.title(f"🏢 {obj_name}")
 st.caption(f"Standort: {bundesland} | Wohnfläche: {qm:.0f} m² | Baujahr: {baujahr}")
 
-# Top KPI Cards
 col1, col2, col3, col4, col5 = st.columns(5)
 cf_m1 = df_proj.loc[0, 'CF n. St.'] / 12
 dscr_1 = df_proj.loc[0, 'NOI'] / ((fk_tot * hb_share * (hb_zins + hb_tilg)) + (max(0, kfw_amt - kfw_grant) * (kfw_zins + kfw_tilg)))
@@ -319,12 +339,10 @@ col3.metric("Eigenkapitalrendite (ROE)", f"{(df_proj.loc[0, 'CF n. St.']/ek_abs)
 col4.metric("DSCR Schuldendienst", f"{dscr_1:.2f}", delta="Sicher (>1.2)" if dscr_1 >= 1.2 else "Kritisch (<1.1)", delta_color="normal")
 col5.metric("10-Jahres IRR", f"{irr*100:.2f} %")
 
-# 15% Steuer Warnung
 limit_15 = afa_base * 0.15
 if sanierung > limit_15:
     st.warning(f"⚠️ **§6 EStG 15%-Hürde überschritten:** Ihre Sanierungskosten ({sanierung:,.0f} €) liegen über der 15%-Grenze ({limit_15:,.0f} €). Diese müssen über 50 Jahre aktiviert werden.")
 
-# Main Tabs
 tab_dash, tab_plan, tab_tax, tab_stress = st.tabs([
     "📊 Executive Dashboard", "📅 10-Jahres Finanzplan", "⚖️ Steuer & VV-GmbH", "💣 Stresstest & Refinanzierung"
 ])
