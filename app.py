@@ -162,7 +162,7 @@ def db_delete_project(supabase: Client, project_id: int):
         st.error(f"Fehler beim Löschen: {e}")
 
 # -----------------------------------------------------------------------------
-# CALCULATION & AI FUNCTIONS (WITH MODEL FALLBACK LOOP)
+# CALCULATION & AI FUNCTIONS (DYNAMISCHE MODELL-ERMITTLUNG)
 # -----------------------------------------------------------------------------
 def get_ampel_status(val, target_green, target_yellow):
     if val >= target_green:
@@ -203,18 +203,37 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        # Modelle mit Fallback-Kette (sucht automatisch das beste verfügbare Modell)
-        candidate_models = [
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-            'gemini-1.5-pro-latest',
-            'gemini-2.0-flash',
-            'gemini-1.0-pro'
-        ]
+        # 1. Dynamisch alle Modelle ermitteln, die generateContent unterstützen
+        available_models = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available_models.append(m.name)
+        except Exception:
+            pass
+
+        # 2. Reihung priorisieren: Schnelle Flash-Modelle zuerst
+        preferred = [m for m in available_models if 'flash' in m.lower()] + \
+                    [m for m in available_models if 'pro' in m.lower()] + \
+                    available_models
+
+        # Fallback-Liste, falls list_models blockiert war
+        if not preferred:
+            preferred = [
+                'models/gemini-1.5-flash',
+                'models/gemini-2.0-flash',
+                'models/gemini-1.5-pro',
+                'gemini-1.5-flash',
+                'gemini-2.0-flash'
+            ]
+
+        # Duplikate filtern
+        candidate_models = list(dict.fromkeys(preferred))
         
         response = None
         last_exception = None
 
+        # 3. Modelle nacheinander testen
         for model_name in candidate_models:
             try:
                 model = genai.GenerativeModel(model_name)
