@@ -10,77 +10,110 @@ import json
 from supabase import create_client, Client
 
 # -----------------------------------------------------------------------------
-# PAGE CONFIG & STYLING
+# PAGE CONFIG & MINIMALIST MODERN STYLING
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="ImmoAnalyse Pro | PropTech AI Suite",
+    page_title="ImmoAnalyse Pro",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for Modern UI, Button-Tabs & Clean Alerts
 st.markdown("""
 <style>
-    .main .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
+    /* Global Spacing & Fonts */
+    .main .block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1280px; }
     
-    /* Top Header Bar */
-    .top-header {
+    /* Top Navigation Bar */
+    .top-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background-color: #0f172a;
-        padding: 15px 25px;
+        background: #0f172a;
+        padding: 12px 24px;
         border-radius: 12px;
         color: white;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
-    .top-header-title { font-size: 1.5rem; font-weight: 800; }
-    .top-header-user { font-size: 0.9rem; opacity: 0.8; }
-    
-    /* Hero Header Styling (Landing Page) */
-    .hero-container {
-        background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
-                    url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1600&auto=format&fit=crop');
-        background-size: cover;
-        background-position: center;
-        padding: 40px;
-        border-radius: 15px;
-        color: white;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    }
-    .hero-title { font-size: 2.4rem; font-weight: 800; margin-bottom: 10px; color: #ffffff; }
-    .hero-subtitle { font-size: 1.1rem; opacity: 0.9; max-width: 700px; margin-bottom: 15px; }
-    
-    /* Feature Box */
-    .feature-box {
-        background: #f8fafc;
-        padding: 18px;
-        border-radius: 10px;
-        border-left: 4px solid #3b82f6;
+    .top-bar-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
+    .top-bar-user { font-size: 0.85rem; opacity: 0.85; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; }
+
+    /* Modern Button Tabs (Replaces Radio Dots) */
+    div[data-testid="stRadio"] > div {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
         margin-bottom: 15px;
     }
+    div[data-testid="stRadio"] label {
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        padding: 10px 18px !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        color: #334155;
+    }
+    div[data-testid="stRadio"] label:hover {
+        background-color: #e2e8f0;
+        border-color: #cbd5e1;
+    }
+    div[data-testid="stRadio"] label[data-checked="true"] {
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+        border-color: #0f172a !important;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+    }
+    div[data-testid="stRadio"] input[type="radio"] {
+        display: none !important;
+    }
     
-    /* Ampel-Card Styling */
+    /* Hero Section */
+    .hero-container {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        padding: 36px;
+        border-radius: 16px;
+        color: white;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .hero-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 8px; }
+    .hero-subtitle { font-size: 1.05rem; opacity: 0.85; max-width: 650px; line-height: 1.5; }
+    
+    /* Feature Cards */
+    .feature-card {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    /* Ampel KPI Cards */
     .ampel-card {
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border-left: 6px solid;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        border: 1px solid #e2e8f0;
+        border-left-width: 6px;
     }
     .ampel-green { background-color: #f0fdf4; border-left-color: #22c55e; color: #14532d; }
     .ampel-yellow { background-color: #fefce8; border-left-color: #eab308; color: #713f12; }
     .ampel-red { background-color: #fef2f2; border-left-color: #ef4444; color: #7f1d1d; }
-    .ampel-title { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 5px; opacity: 0.8; }
-    .ampel-value { font-size: 1.5rem; font-weight: 700; }
-    .ampel-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
+    .ampel-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; opacity: 0.75; }
+    .ampel-value { font-size: 1.45rem; font-weight: 700; }
+    .ampel-status { font-size: 0.78rem; font-weight: 600; margin-top: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# CONSTANTS & DEFAULT STRATEGIES
+# CONSTANTS & STRATEGIES
 # -----------------------------------------------------------------------------
 GRUNDERWERBSTEUER_MAP = {
     "Baden-Württemberg": 0.050, "Bayern": 0.035, "Berlin": 0.060,
@@ -112,7 +145,7 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# SUPABASE HELPERS
+# SUPABASE HELPERS (SILENT ERROR HANDLING)
 # -----------------------------------------------------------------------------
 def get_supabase_client() -> Client:
     sb_url = st.session_state.get("supabase_url", "") or st.secrets.get("SUPABASE_URL", "")
@@ -139,14 +172,16 @@ def db_save_project(supabase: Client, user_id: str, project_name: str, payload: 
             }).execute()
             st.success(f"Projekt '{project_name}' neu in Datenbank gespeichert!")
     except Exception as e:
-        st.error(f"Fehler beim Speichern in DB: {e}")
+        st.error(f"Fehler beim Speichern: {e}")
 
 def db_get_projects(supabase: Client, user_id: str):
+    if not supabase:
+        return []
     try:
         res = supabase.table("projects").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
         return res.data or []
-    except Exception as e:
-        st.error(f"Fehler beim Laden der DB-Projekte: {e}")
+    except Exception:
+        # Silently fail if table doesn't exist yet so user only sees clean info banner
         return []
 
 def db_delete_project(supabase: Client, project_id: int):
@@ -352,16 +387,16 @@ for k, v in default_state.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+sb_client = get_supabase_client()
+
 # -----------------------------------------------------------------------------
 # AUTH GATE (LANDING PAGE)
 # -----------------------------------------------------------------------------
-sb_client = get_supabase_client()
-
 if not st.session_state["authenticated"]:
     st.markdown("""
     <div class="hero-container">
         <div class="hero-title">🏢 ImmoAnalyse Pro</div>
-        <div class="hero-subtitle">Die smarte PropTech-Plattform für professionelle Immobilien-Investoren. Analysieren Sie Angebote in Sekunden mit KI, verwalten Sie Ihr Portfolio und sichern Sie profitable Deals.</div>
+        <div class="hero-subtitle">Die smarte PropTech-Plattform für Immobilien-Investoren. Analysieren Sie Objekte in Sekunden mit KI, verwalten Sie Ihre Pipeline und sichern Sie profitable Deals.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -370,15 +405,15 @@ if not st.session_state["authenticated"]:
     with col_landing1:
         st.markdown("### 🚀 Highlights der Plattform")
         st.markdown("""
-        <div class="feature-box">
+        <div class="feature-card">
             <b>🤖 KI-Exposé-Import</b><br>
-            Exposés als PDF hochladen. Gemini AI zieht Mieten, Kaufpreis und Quadratmeter automatisch heraus.
+            Exposé als PDF hochladen – Gemini AI zieht Mieten, Kaufpreis & Baujahr vollautomatisch heraus.
         </div>
-        <div class="feature-box">
+        <div class="feature-card">
             <b>🚦 Ampelsystem & Deal-Checker</b><br>
-            Bewerte Deals in 3 Sekunden nach deiner individuellen Investment-Strategie.
+            Bewerte Deals in Sekunden nach deiner individuellen Investment-Strategie.
         </div>
-        <div class="feature-box">
+        <div class="feature-card">
             <b>☁️ Pipeline & Multi-Projekt-Verwaltung</b><br>
             Speichere all deine Objekte in der Cloud und vergleiche sie Side-by-Side.
         </div>
@@ -431,24 +466,28 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# MAIN APPLICATION (AFTER LOGIN)
+# MAIN APPLICATION HEADER & STYLED TOP NAVIGATION
 # -----------------------------------------------------------------------------
 
-# TOP HEADER BAR
+# TOP HEADER BAR WITH USER BADGE & LOGOUT BUTTON
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
-    st.markdown(f"### 🏢 ImmoAnalyse Pro")
+    st.markdown("""
+    <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 5px;">
+        🏢 ImmoAnalyse Pro
+    </div>
+    """, unsafe_allow_html=True)
 with col_h2:
-    st.write(f"👤 **{st.session_state['user_email']}**")
-    if st.button("🚪 Abmelden", key="btn_logout"):
+    st.markdown(f"<div style='text-align: right; font-size: 0.9rem; font-weight: 600; color: #475569;'>👤 {st.session_state['user_email']}</div>", unsafe_allow_html=True)
+    if st.button("🚪 Abmelden", key="btn_logout", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
         st.rerun()
 
-# TOP MAIN NAVIGATION HUB
+# TOP MAIN BUTTON TABS (No dots, sleek styled radio pills)
 nav_choice = st.radio(
     "Hauptmenü",
-    ["📂 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis Rechner", "⚙️ Einstellungen"],
+    ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis Rechner", "⚙️ Einstellungen"],
     horizontal=True,
     label_visibility="collapsed"
 )
@@ -456,21 +495,18 @@ nav_choice = st.radio(
 st.divider()
 
 # =============================================================================
-# MODUL 1: 📂 MEINE PROJEKTE (PIPELINE DASHBOARD)
+# MODUL 1: 📁 MEINE PROJEKTE (PIPELINE DASHBOARD)
 # =============================================================================
-if nav_choice == "📂 Meine Projekte":
-    st.header("📂 Meine Immobilien-Pipeline")
+if nav_choice == "📁 Meine Projekte":
+    st.header("📁 Meine Immobilien-Pipeline")
     st.caption("Verwalten und durchsuchen Sie all Ihre analysierten Objekte auf einen Blick.")
 
-    projects = db_get_projects(sb_client, st.session_state["user_email"]) if sb_client else []
+    projects = db_get_projects(sb_client, st.session_state["user_email"])
     
     if projects:
-        # Build summary dataframe
         table_rows = []
         for p in projects:
             d = p["input_data"]
-            
-            # Quick calc
             calc_p, _, ek_p, fk_p, irr_p, _ = calc_10y_projection({
                 'kaufpreis': d["kaufpreis"], 'sanierung': d["sanierung"],
                 'bundesland': d["bundesland"], 'notar_proz': d["notar_p"]/100,
@@ -497,52 +533,50 @@ if nav_choice == "📂 Meine Projekte":
             rendite = calc_p.loc[0, 'Bruttomietrendite'] * 100
             
             table_rows.append({
-                "ID": p["id"],
                 "Objektname": p["project_name"],
                 "Standort": d["bundesland"],
                 "Kaufpreis": f"{d['kaufpreis']:,.0f} €",
                 "Wohnfläche": f"{d['qm']:.0f} m²",
                 "Cashflow (n. St.)": f"{cf_m:,.2f} €/M",
                 "Bruttomietrendite": f"{rendite:.2f} %",
-                "IRR (10 Jahre)": f"{irr_p*100:.2f} %"
+                "10-Jahres IRR": f"{irr_p*100:.2f} %"
             })
             
         df_summary = pd.DataFrame(table_rows)
-        st.dataframe(df_summary.drop(columns=["ID"]), use_container_width=True)
+        st.dataframe(df_summary, use_container_width=True)
         
         st.divider()
         st.subheader("⚡ Schnell-Aktionen")
         col_act1, col_act2 = st.columns(2)
         
-        selected_project_name = col_act1.selectbox("Projekt zum Bearbeiten/Laden auswählen", [p["project_name"] for p in projects])
+        selected_project_name = col_act1.selectbox("Projekt auswählen", [p["project_name"] for p in projects])
         
-        if col_act1.button("📥 Projekt in Analyse-Tool laden", type="primary"):
+        if col_act1.button("📥 Projekt in Analyse-Tool laden", type="primary", use_container_width=True):
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
             for k, v in p_target["input_data"].items():
                 st.session_state[k] = v
             st.success(f"'{selected_project_name}' geladen! Wechseln Sie zum Reiter 'Analyse & Rechner'.")
 
-        if col_act2.button("🗑️ Projekt unwiderruflich löschen"):
+        if col_act2.button("🗑️ Projekt unwiderruflich löschen", use_container_width=True):
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
             db_delete_project(sb_client, p_target["id"])
             st.rerun()
 
     else:
-        st.info("💡 Noch keine Objekte in der Datenbank gespeichert. Wechseln Sie zu **'➕ Analyse & Rechner'**, um Ihr erstes Objekt einzugeben!")
+        st.info("💡 Noch keine Objekte in der Datenbank gespeichert. Wechseln Sie zum Reiter **'➕ Analyse & Rechner'**, um Ihr erstes Objekt einzugeben!")
 
 # =============================================================================
 # MODUL 2: ➕ ANALYSE & RECHNER (KERN-TOOL)
 # =============================================================================
 elif nav_choice == "➕ Analyse & Rechner":
     
-    # CLEARED SIDEBAR: ONLY PROPERTY DATA INPUTS & AI UPLOAD
     with st.sidebar:
         st.subheader("🤖 KI-Exposé-Import")
         api_key = st.session_state.get("gemini_api_key", "")
         uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
         
         if uploaded_pdf and api_key:
-            if st.button("✨ Exposé per KI analysieren"):
+            if st.button("✨ Exposé per KI analysieren", use_container_width=True):
                 with st.spinner("Lese PDF..."):
                     ai_data = analyze_pdf_with_gemini(api_key, uploaded_pdf)
                     if ai_data:
@@ -605,7 +639,6 @@ elif nav_choice == "➕ Analyse & Rechner":
         st.number_input("WACC (%)", key="wacc")
         st.number_input("Verkaufsnk. (%)", key="exit_cost")
 
-    # PACK INPUTS
     input_data = {
         'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
         'bundesland': st.session_state["bundesland"], 'notar_proz': st.session_state["notar_p"] / 100,
@@ -630,7 +663,6 @@ elif nav_choice == "➕ Analyse & Rechner":
 
     df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data)
 
-    # HEADER & SAVE BUTTONS
     col_t1, col_t2 = st.columns([3, 1])
     with col_t1:
         st.title(f"🏢 {st.session_state['obj_name']}")
@@ -640,7 +672,6 @@ elif nav_choice == "➕ Analyse & Rechner":
         if sb_client and st.button("💾 In Cloud Speichern", type="primary", use_container_width=True):
             db_save_project(sb_client, st.session_state["user_email"], st.session_state["obj_name"], current_payload)
 
-    # ACTIVE STRATEGY CHECK
     strat_name = st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")
     strat = STRATEGIES.get(strat_name, STRATEGIES["Konservativ / Ausgewogen (Standard)"])
     
@@ -656,14 +687,12 @@ elif nav_choice == "➕ Analyse & Rechner":
     status_roe, label_roe = get_ampel_status(val_roe, strat["target_roe"], strat["tol_roe"])
     status_dscr, label_dscr = get_ampel_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
 
-    # AMPEL CARDS
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f'<div class="ampel-card ampel-{status_cf}"><div class="ampel-title">Cashflow n. St.</div><div class="ampel-value">{val_cf:,.2f} €/M</div><div class="ampel-status">{label_cf}</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="ampel-card ampel-{status_rendite}"><div class="ampel-title">Bruttomietrendite</div><div class="ampel-value">{val_rendite:.2f} %</div><div class="ampel-status">{label_rendite}</div></div>', unsafe_allow_html=True)
     c3.markdown(f'<div class="ampel-card ampel-{status_roe}"><div class="ampel-title">EK-Rendite (ROE)</div><div class="ampel-value">{val_roe:.2f} %</div><div class="ampel-status">{label_roe}</div></div>', unsafe_allow_html=True)
     c4.markdown(f'<div class="ampel-card ampel-{status_dscr}"><div class="ampel-title">DSCR Schuldendienst</div><div class="ampel-value">{val_dscr:.2f}</div><div class="ampel-status">{label_dscr}</div></div>', unsafe_allow_html=True)
 
-    # TABS
     tab_dash, tab_plan, tab_tax, tab_stress = st.tabs(["📊 Executive Dashboard", "📅 10-Jahres Finanzplan", "⚖️ Steuer & VV-GmbH", "💣 Stresstest"])
 
     with tab_dash:
@@ -725,7 +754,7 @@ elif nav_choice == "⚖️ Deal-Vergleich":
     st.header("⚖️ Multi-Deal Vergleich (Side-by-Side)")
     st.caption("Vergleichen Sie bis zu 3 gespeicherte Objekte direkt nebeneinander.")
     
-    projects = db_get_projects(sb_client, st.session_state["user_email"]) if sb_client else []
+    projects = db_get_projects(sb_client, st.session_state["user_email"])
     
     if len(projects) >= 2:
         selected_deals = st.multiselect("Wählen Sie 2 bis 3 Objekte aus:", [p["project_name"] for p in projects], default=[p["project_name"] for p in projects[:2]])
@@ -733,12 +762,10 @@ elif nav_choice == "⚖️ Deal-Vergleich":
         if len(selected_deals) >= 2:
             cols = st.columns(len(selected_deals))
             
-            comp_data = []
             for idx, deal_name in enumerate(selected_deals):
                 p = next(proj for proj in projects if proj["project_name"] == deal_name)
                 d = p["input_data"]
                 
-                # Calc
                 df_c, tot_inv, ek_abs, fk_tot, irr, _ = calc_10y_projection({
                     'kaufpreis': d["kaufpreis"], 'sanierung': d["sanierung"],
                     'bundesland': d["bundesland"], 'notar_proz': d["notar_p"]/100,
@@ -791,7 +818,6 @@ elif nav_choice == "🧮 Max. Kaufpreis Rechner":
         st.info(f"Aktuell angesetzter Kaufpreis: **{current_kp:,.0f} €**")
 
     with col_g2:
-        # Simple Iteration / Binary Search for Max Price
         best_price = current_kp
         for test_kp in range(50000, 2000000, 5000):
             test_data = dict(input_data)
