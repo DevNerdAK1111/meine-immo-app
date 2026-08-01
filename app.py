@@ -19,12 +19,26 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS für Landing Page, Login-Card & Ampelsystem
+# Custom CSS
 st.markdown("""
 <style>
-    .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    .main .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
     
-    /* Hero Header Styling */
+    /* Top Header Bar */
+    .top-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #0f172a;
+        padding: 15px 25px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .top-header-title { font-size: 1.5rem; font-weight: 800; }
+    .top-header-user { font-size: 0.9rem; opacity: 0.8; }
+    
+    /* Hero Header Styling (Landing Page) */
     .hero-container {
         background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
                     url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1600&auto=format&fit=crop');
@@ -36,30 +50,13 @@ st.markdown("""
         margin-bottom: 25px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
     }
-    .hero-title {
-        font-size: 2.4rem;
-        font-weight: 800;
-        margin-bottom: 10px;
-        color: #ffffff;
-    }
-    .hero-subtitle {
-        font-size: 1.1rem;
-        opacity: 0.9;
-        max-width: 700px;
-        margin-bottom: 15px;
-    }
+    .hero-title { font-size: 2.4rem; font-weight: 800; margin-bottom: 10px; color: #ffffff; }
+    .hero-subtitle { font-size: 1.1rem; opacity: 0.9; max-width: 700px; margin-bottom: 15px; }
     
-    /* Login & Feature Cards */
-    .auth-card {
-        background-color: #ffffff;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-    }
+    /* Feature Box */
     .feature-box {
         background: #f8fafc;
-        padding: 20px;
+        padding: 18px;
         border-radius: 10px;
         border-left: 4px solid #3b82f6;
         margin-bottom: 15px;
@@ -83,7 +80,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# CONSTANTS & STRATEGIES
+# CONSTANTS & DEFAULT STRATEGIES
 # -----------------------------------------------------------------------------
 GRUNDERWERBSTEUER_MAP = {
     "Baden-Württemberg": 0.050, "Bayern": 0.035, "Berlin": 0.060,
@@ -115,11 +112,11 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# SUPABASE HELPERS & AUTH
+# SUPABASE HELPERS
 # -----------------------------------------------------------------------------
 def get_supabase_client() -> Client:
-    sb_url = st.secrets.get("SUPABASE_URL", "")
-    sb_key = st.secrets.get("SUPABASE_KEY", "")
+    sb_url = st.session_state.get("supabase_url", "") or st.secrets.get("SUPABASE_URL", "")
+    sb_key = st.session_state.get("supabase_key", "") or st.secrets.get("SUPABASE_KEY", "")
     if sb_url and sb_key:
         try:
             return create_client(sb_url, sb_key)
@@ -336,6 +333,8 @@ if "user_email" not in st.session_state:
     st.session_state["user_email"] = ""
 if "gemini_api_key" not in st.session_state:
     st.session_state["gemini_api_key"] = ""
+if "selected_strategy_name" not in st.session_state:
+    st.session_state["selected_strategy_name"] = "Konservativ / Ausgewogen (Standard)"
 
 default_state = {
     "obj_name": "MFH Musterstraße 12", "bundesland": "Niedersachsen", "kaufpreis": 350000.0,
@@ -354,12 +353,11 @@ for k, v in default_state.items():
         st.session_state[k] = v
 
 # -----------------------------------------------------------------------------
-# LANDING PAGE & AUTH GATE
+# AUTH GATE (LANDING PAGE)
 # -----------------------------------------------------------------------------
 sb_client = get_supabase_client()
 
 if not st.session_state["authenticated"]:
-    # HERO HEADER
     st.markdown("""
     <div class="hero-container">
         <div class="hero-title">🏢 ImmoAnalyse Pro</div>
@@ -370,26 +368,24 @@ if not st.session_state["authenticated"]:
     col_landing1, col_landing2 = st.columns([1.2, 1])
 
     with col_landing1:
-        st.markdown("### 🚀 Warum ImmoAnalyse Pro?")
-        
+        st.markdown("### 🚀 Highlights der Plattform")
         st.markdown("""
         <div class="feature-box">
             <b>🤖 KI-Exposé-Import</b><br>
-            Laden Sie einfach PDF-Exposés hoch. Gemini AI extrahiert Kaufpreis, Mietverträge und Objekt-Daten vollautomatisch.
+            Exposés als PDF hochladen. Gemini AI zieht Mieten, Kaufpreis und Quadratmeter automatisch heraus.
         </div>
         <div class="feature-box">
-            <b>🚦 Intelligentes Ampelsystem</b><br>
-            Prüfen Sie sofort, ob ein Objekt Ihre individuellen Ziel-KPIs (Cashflow, DSCR, ROE, Rendite) erfüllt.
+            <b>🚦 Ampelsystem & Deal-Checker</b><br>
+            Bewerte Deals in 3 Sekunden nach deiner individuellen Investment-Strategie.
         </div>
         <div class="feature-box">
-            <b>☁️ Multi-Projekt Cloud-Speicher</b><br>
-            Speichern und vergleichen Sie all Ihre Investment-Objekte sicher in Ihrem persönlichen Nutzerkonto.
+            <b>☁️ Pipeline & Multi-Projekt-Verwaltung</b><br>
+            Speichere all deine Objekte in der Cloud und vergleiche sie Side-by-Side.
         </div>
         """, unsafe_allow_html=True)
 
     with col_landing2:
         st.markdown("### 🔐 Anmelden / Registrieren")
-        
         auth_tab1, auth_tab2 = st.tabs(["Anmelden", "Registrieren"])
         
         with auth_tab1:
@@ -402,7 +398,6 @@ if not st.session_state["authenticated"]:
                         res = sb_client.auth.sign_in_with_password({"email": email_in, "password": pass_in})
                         st.session_state["authenticated"] = True
                         st.session_state["user_email"] = email_in
-                        st.success("Erfolgreich eingeloggt!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Login fehlgeschlagen: {e}")
@@ -417,7 +412,6 @@ if not st.session_state["authenticated"]:
         with auth_tab2:
             reg_email = st.text_input("E-Mail Adresse", key="reg_email")
             reg_pass = st.text_input("Passwort erstellen", type="password", key="reg_pass")
-            
             if st.button("✨ Kostenloses Profil erstellen", use_container_width=True):
                 if sb_client:
                     try:
@@ -434,315 +428,413 @@ if not st.session_state["authenticated"]:
             st.session_state["user_email"] = "gast_investor@immo.de"
             st.rerun()
 
-    st.stop()  # Stoppt hier, falls nicht eingeloggt!
+    st.stop()
 
 # -----------------------------------------------------------------------------
-# MAIN APP (NUR NACH LOGIN SICHTBAR)
+# MAIN APPLICATION (AFTER LOGIN)
 # -----------------------------------------------------------------------------
-with st.sidebar:
-    st.title("🏢 ImmoAnalyse Pro")
-    st.caption(f"Eingeloggt als: **{st.session_state['user_email']}**")
-    
-    if st.button("🚪 Abmelden"):
+
+# TOP HEADER BAR
+col_h1, col_h2 = st.columns([3, 1])
+with col_h1:
+    st.markdown(f"### 🏢 ImmoAnalyse Pro")
+with col_h2:
+    st.write(f"👤 **{st.session_state['user_email']}**")
+    if st.button("🚪 Abmelden", key="btn_logout"):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
         st.rerun()
-        
-    st.divider()
 
-    # EXPANDER: DATENBANK & PROJEKT-VERWALTUNG
-    with st.expander("☁️ **Meine Projekte & Cloud**", expanded=True):
-        st.markdown("**📂 Gespeicherte Objekte:**")
+# TOP MAIN NAVIGATION HUB
+nav_choice = st.radio(
+    "Hauptmenü",
+    ["📂 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis Rechner", "⚙️ Einstellungen"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.divider()
+
+# =============================================================================
+# MODUL 1: 📂 MEINE PROJEKTE (PIPELINE DASHBOARD)
+# =============================================================================
+if nav_choice == "📂 Meine Projekte":
+    st.header("📂 Meine Immobilien-Pipeline")
+    st.caption("Verwalten und durchsuchen Sie all Ihre analysierten Objekte auf einen Blick.")
+
+    projects = db_get_projects(sb_client, st.session_state["user_email"]) if sb_client else []
+    
+    if projects:
+        # Build summary dataframe
+        table_rows = []
+        for p in projects:
+            d = p["input_data"]
+            
+            # Quick calc
+            calc_p, _, ek_p, fk_p, irr_p, _ = calc_10y_projection({
+                'kaufpreis': d["kaufpreis"], 'sanierung': d["sanierung"],
+                'bundesland': d["bundesland"], 'notar_proz': d["notar_p"]/100,
+                'makler_proz': d["makler_p"]/100, 'sonst_nk': d["sonst_nk"],
+                'disagio_proz': d["disagio_p"]/100, 'ek_quote': d["ek_quote"],
+                'hb_share': d["hb_share"], 'hb_zins': d["hb_zins"]/100,
+                'hb_tilg': d["hb_tilg"]/100, 'grace_years': d["grace_years"],
+                'kfw_amt': d["kfw_amt"], 'kfw_zins': d["kfw_zins"]/100,
+                'kfw_tilg': d["kfw_tilg"]/100, 'kfw_grant': d["kfw_grant"],
+                'sondertilg': d["sondertilg"], 'ist_sqm': d["ist_sqm"],
+                'target_sqm': d["target_sqm"], 'adj_year': d["adj_year"],
+                'park': d["park"], 'vac_rate': d["vac_rate"],
+                'qm': d["qm"], 'hausgeld': d["hausgeld"],
+                'inst_sqm': d["inst_sqm"], 'mgt_monat': d["mgt_monat"],
+                'capex_j3': d["capex_j3"], 'capex_j6': d["capex_j6"],
+                'tax_rate': d["tax_rate"], 'afa_model': d["afa_model"],
+                'afa_lin': d["afa_lin"]/100, 'miet_inc': d["miet_inc"]/100,
+                'cost_inc': d["cost_inc"]/100, 'val_inc': d["val_inc"]/100,
+                'wacc': d["wacc"]/100, 'exit_cost': d["exit_cost"]/100,
+                'grund_anteil': d["grund_anteil"]
+            })
+            
+            cf_m = calc_p.loc[0, 'CF n. St.'] / 12
+            rendite = calc_p.loc[0, 'Bruttomietrendite'] * 100
+            
+            table_rows.append({
+                "ID": p["id"],
+                "Objektname": p["project_name"],
+                "Standort": d["bundesland"],
+                "Kaufpreis": f"{d['kaufpreis']:,.0f} €",
+                "Wohnfläche": f"{d['qm']:.0f} m²",
+                "Cashflow (n. St.)": f"{cf_m:,.2f} €/M",
+                "Bruttomietrendite": f"{rendite:.2f} %",
+                "IRR (10 Jahre)": f"{irr_p*100:.2f} %"
+            })
+            
+        df_summary = pd.DataFrame(table_rows)
+        st.dataframe(df_summary.drop(columns=["ID"]), use_container_width=True)
         
-        if sb_client:
-            projects = db_get_projects(sb_client, st.session_state["user_email"])
-            if projects:
-                proj_names = [p["project_name"] for p in projects]
-                selected_p = st.selectbox("Projekt auswählen", proj_names)
-                
-                col_p1, col_p2 = st.columns(2)
-                if col_p1.button("📥 Laden"):
-                    p_obj = next(p for p in projects if p["project_name"] == selected_p)
-                    for k, v in p_obj["input_data"].items():
-                        st.session_state[k] = v
-                    st.success(f"'{selected_p}' geladen!")
-                    st.rerun()
-                    
-                if col_p2.button("🗑️ Löschen"):
-                    p_obj = next(p for p in projects if p["project_name"] == selected_p)
-                    db_delete_project(sb_client, p_obj["id"])
-                    st.rerun()
-            else:
-                st.info("Noch keine Projekte in der Cloud gespeichert.")
-        else:
-            st.warning("Keine Supabase-Keys in Secrets hinterlegt (Lokal-Modus).")
+        st.divider()
+        st.subheader("⚡ Schnell-Aktionen")
+        col_act1, col_act2 = st.columns(2)
+        
+        selected_project_name = col_act1.selectbox("Projekt zum Bearbeiten/Laden auswählen", [p["project_name"] for p in projects])
+        
+        if col_act1.button("📥 Projekt in Analyse-Tool laden", type="primary"):
+            p_target = next(p for p in projects if p["project_name"] == selected_project_name)
+            for k, v in p_target["input_data"].items():
+                st.session_state[k] = v
+            st.success(f"'{selected_project_name}' geladen! Wechseln Sie zum Reiter 'Analyse & Rechner'.")
+
+        if col_act2.button("🗑️ Projekt unwiderruflich löschen"):
+            p_target = next(p for p in projects if p["project_name"] == selected_project_name)
+            db_delete_project(sb_client, p_target["id"])
+            st.rerun()
+
+    else:
+        st.info("💡 Noch keine Objekte in der Datenbank gespeichert. Wechseln Sie zu **'➕ Analyse & Rechner'**, um Ihr erstes Objekt einzugeben!")
+
+# =============================================================================
+# MODUL 2: ➕ ANALYSE & RECHNER (KERN-TOOL)
+# =============================================================================
+elif nav_choice == "➕ Analyse & Rechner":
+    
+    # CLEARED SIDEBAR: ONLY PROPERTY DATA INPUTS & AI UPLOAD
+    with st.sidebar:
+        st.subheader("🤖 KI-Exposé-Import")
+        api_key = st.session_state.get("gemini_api_key", "")
+        uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
+        
+        if uploaded_pdf and api_key:
+            if st.button("✨ Exposé per KI analysieren"):
+                with st.spinner("Lese PDF..."):
+                    ai_data = analyze_pdf_with_gemini(api_key, uploaded_pdf)
+                    if ai_data:
+                        if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
+                        if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
+                        if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
+                        if ai_data.get("ist_miete_sqm"): st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
+                        if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
+                        if ai_data.get("objektname"): st.session_state["obj_name"] = str(ai_data["objektname"])
+                        st.success("KI-Daten übernommen!")
+                        st.rerun()
 
         st.divider()
+        st.subheader("1. Stammdaten")
+        st.text_input("Objektname", key="obj_name")
+        st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+        st.number_input("Kaufpreis (€)", key="kaufpreis", step=10000.0)
+        st.number_input("Wohnfläche (m²)", key="qm", step=5.0)
+        st.number_input("Baujahr", key="baujahr", step=1)
+        st.number_input("Sanierungskosten (€)", key="sanierung", step=5000.0)
+        st.slider("Grundstücksanteil (%)", 0.0, 0.50, key="grund_anteil", step=0.05)
+
+        st.subheader("2. Nebenkosten")
+        st.number_input("Notar (%)", key="notar_p")
+        st.number_input("Makler (%)", key="makler_p")
+        st.number_input("Sonstige NK (€)", key="sonst_nk")
+        st.number_input("Disagio (%)", key="disagio_p")
+
+        st.subheader("3. Finanzierung")
+        st.slider("Eigenkapitalquote (%)", 0.0, 0.50, key="ek_quote", step=0.05)
+        st.slider("Anteil Hausbank (%)", 0.50, 1.0, key="hb_share", step=0.05)
+        st.number_input("Hausbank Zins (%)", key="hb_zins")
+        st.number_input("Hausbank Tilgung (%)", key="hb_tilg")
+        st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
+        st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
+        st.number_input("KfW Zins (%)", key="kfw_zins")
+        st.number_input("KfW Tilgung (%)", key="kfw_tilg")
+        st.number_input("KfW Zuschuss (€)", key="kfw_grant")
+        st.number_input("Sondertilgung (€/J)", key="sondertilg", step=500.0)
+
+        st.subheader("4. Mieten & Betriebskosten")
+        st.number_input("Ist-Kaltmiete (€/m²)", key="ist_sqm")
+        st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm")
+        st.number_input("Jahr Ziel-Miete", key="adj_year", min_value=1, max_value=10)
+        st.number_input("Sonstige Miete (€/M)", key="park")
+        st.slider("Leerstand (%)", 0.0, 0.10, key="vac_rate")
+        st.number_input("Hausgeld (€/M)", key="hausgeld")
+        st.number_input("Instandhaltung (€/m²/J)", key="inst_sqm")
+        st.number_input("Verwaltung (€/M)", key="mgt_monat")
+        st.number_input("CapEx Jahr 3 (€)", key="capex_j3")
+        st.number_input("CapEx Jahr 6 (€)", key="capex_j6")
+
+        st.subheader("5. Steuer & Makro")
+        st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
+        st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
+        st.number_input("Linearer AfA-Satz (%)", key="afa_lin")
+        st.number_input("Mietsteigerung p.a. (%)", key="miet_inc")
+        st.number_input("Cost Inflation p.a. (%)", key="cost_inc")
+        st.number_input("Wertsteigerung p.a. (%)", key="val_inc")
+        st.number_input("WACC (%)", key="wacc")
+        st.number_input("Verkaufsnk. (%)", key="exit_cost")
+
+    # PACK INPUTS
+    input_data = {
+        'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
+        'bundesland': st.session_state["bundesland"], 'notar_proz': st.session_state["notar_p"] / 100,
+        'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
+        'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_quote': st.session_state["ek_quote"],
+        'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
+        'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
+        'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"] / 100,
+        'kfw_tilg': st.session_state["kfw_tilg"] / 100, 'kfw_grant': st.session_state["kfw_grant"],
+        'sondertilg': st.session_state["sondertilg"], 'ist_sqm': st.session_state["ist_sqm"],
+        'target_sqm': st.session_state["target_sqm"], 'adj_year': st.session_state["adj_year"],
+        'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate"],
+        'qm': st.session_state["qm"], 'hausgeld': st.session_state["hausgeld"],
+        'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
+        'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
+        'tax_rate': st.session_state["tax_rate"], 'afa_model': st.session_state["afa_model"],
+        'afa_lin': st.session_state["afa_lin"] / 100, 'miet_inc': st.session_state["miet_inc"] / 100,
+        'cost_inc': st.session_state["cost_inc"] / 100, 'val_inc': st.session_state["val_inc"] / 100,
+        'wacc': st.session_state["wacc"] / 100, 'exit_cost': st.session_state["exit_cost"] / 100,
+        'grund_anteil': st.session_state["grund_anteil"]
+    }
+
+    df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data)
+
+    # HEADER & SAVE BUTTONS
+    col_t1, col_t2 = st.columns([3, 1])
+    with col_t1:
+        st.title(f"🏢 {st.session_state['obj_name']}")
+        st.caption(f"Standort: {st.session_state['bundesland']} | Wohnfläche: {st.session_state['qm']:.0f} m² | Baujahr: {st.session_state['baujahr']}")
+    with col_t2:
         current_payload = {k: st.session_state[k] for k in default_state.keys()}
-        
-        if sb_client and st.button("💾 Objekt in Cloud Speichern", use_container_width=True):
+        if sb_client and st.button("💾 In Cloud Speichern", type="primary", use_container_width=True):
             db_save_project(sb_client, st.session_state["user_email"], st.session_state["obj_name"], current_payload)
 
-        st.download_button(
-            label="💾 Projekt als JSON speichern",
-            data=json.dumps(current_payload, indent=2),
-            file_name=f"{st.session_state['obj_name'].replace(' ', '_')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
+    # ACTIVE STRATEGY CHECK
+    strat_name = st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")
+    strat = STRATEGIES.get(strat_name, STRATEGIES["Konservativ / Ausgewogen (Standard)"])
+    
+    val_cf = df_proj.loc[0, 'CF n. St.'] / 12
+    val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
+    val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100
+    hb_annu = fk_tot * (st.session_state["hb_share"]) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
+    kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
+    val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
 
-    # EXPANDER: STRATEGIE & ZIEL-KPIS
-    with st.expander("🎯 **Strategie & Ziel-KPIs**", expanded=False):
-        selected_strategy = st.selectbox("Investment-Strategie", list(STRATEGIES.keys()) + ["Benutzerdefiniert"])
+    status_cf, label_cf = get_ampel_status(val_cf, strat["target_cf"], strat["tol_cf"])
+    status_rendite, label_rendite = get_ampel_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])
+    status_roe, label_roe = get_ampel_status(val_roe, strat["target_roe"], strat["tol_roe"])
+    status_dscr, label_dscr = get_ampel_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
+
+    # AMPEL CARDS
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(f'<div class="ampel-card ampel-{status_cf}"><div class="ampel-title">Cashflow n. St.</div><div class="ampel-value">{val_cf:,.2f} €/M</div><div class="ampel-status">{label_cf}</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="ampel-card ampel-{status_rendite}"><div class="ampel-title">Bruttomietrendite</div><div class="ampel-value">{val_rendite:.2f} %</div><div class="ampel-status">{label_rendite}</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="ampel-card ampel-{status_roe}"><div class="ampel-title">EK-Rendite (ROE)</div><div class="ampel-value">{val_roe:.2f} %</div><div class="ampel-status">{label_roe}</div></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="ampel-card ampel-{status_dscr}"><div class="ampel-title">DSCR Schuldendienst</div><div class="ampel-value">{val_dscr:.2f}</div><div class="ampel-status">{label_dscr}</div></div>', unsafe_allow_html=True)
+
+    # TABS
+    tab_dash, tab_plan, tab_tax, tab_stress = st.tabs(["📊 Executive Dashboard", "📅 10-Jahres Finanzplan", "⚖️ Steuer & VV-GmbH", "💣 Stresstest"])
+
+    with tab_dash:
+        col_chart1, col_chart2 = st.columns([2, 1])
+        with col_chart1:
+            st.subheader("Vermögensaufbau vs. Restschuld")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#10b981", width=3)))
+            fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#ef4444", width=3)))
+            fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital / NAV (€)", marker_color="#3b82f6", opacity=0.4))
+            fig.update_layout(template="plotly_white", height=400)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col_chart2:
+            st.subheader("Gesamtinvestition")
+            fig_pie = px.pie(
+                names=['Eigenkapital', 'Hausbank', 'KfW'],
+                values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
+                color_discrete_sequence=['#3b82f6', '#0f172a', '#06b6d4'],
+                hole=0.4
+            )
+            fig_pie.update_layout(height=400)
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    with tab_plan:
+        st.subheader("10-Jahres Liquiditätsverlauf")
+        st.dataframe(df_proj.style.format({
+            "Bruttomietrendite": "{:.2%}", "Brutto-Kaltmiete": "{:,.0f} €", "NOI": "{:,.0f} €",
+            "Zinsen": "{:,.0f} €", "Tilgung": "{:,.0f} €", "CF v. St.": "{:,.0f} €",
+            "AfA": "{:,.0f} €", "Steuer": "{:,.0f} €", "CF n. St.": "{:,.0f} €",
+            "Restschuld": "{:,.0f} €", "Objektwert": "{:,.0f} €", "NAV": "{:,.0f} €", "LTV": "{:.1%}"
+        }), use_container_width=True)
+
+    with tab_tax:
+        st.subheader("Privatbesitz vs. VV-GmbH")
+        tot_taxable = df_proj['NOI'].sum() - df_proj['Zinsen'].sum() - df_proj['AfA'].sum()
+        tax_privat = tot_taxable * st.session_state["tax_rate"]
+        tax_gmbh = tot_taxable * 0.15825
+        c_t1, c_t2, c_t3 = st.columns(3)
+        c_t1.metric("Steuer Haltephase (Privat)", f"{tax_privat:,.0f} €")
+        c_t2.metric("Steuer Haltephase (VV-GmbH)", f"{tax_gmbh:,.0f} €")
+        c_t3.metric("Ersparnis Haltephase GmbH", f"{tax_privat - tax_gmbh:,.0f} €")
+
+    with tab_stress:
+        st.subheader("Refinanzierungs-Shock (Jahr 11)")
+        restschuld_10 = df_proj.loc[9, 'Restschuld']
+        rates = [0.035, 0.045, 0.055, 0.065, 0.075]
+        refin_data = []
+        for r in rates:
+            new_rate = (restschuld_10 * (r + (st.session_state["hb_tilg"] / 100))) / 12
+            new_dscr = df_proj.loc[9, 'NOI'] / (new_rate * 12) if new_rate > 0 else 0
+            refin_data.append({"Anschluss-Zins": f"{r*100:.1f} %", "Monatliche Rate": f"{new_rate:,.2f} €", "Neuer DSCR": f"{new_dscr:.2f}"})
+        st.table(pd.DataFrame(refin_data))
+
+# =============================================================================
+# MODUL 3: ⚖️ DEAL-VERGLEICH (SIDE-BY-SIDE)
+# =============================================================================
+elif nav_choice == "⚖️ Deal-Vergleich":
+    st.header("⚖️ Multi-Deal Vergleich (Side-by-Side)")
+    st.caption("Vergleichen Sie bis zu 3 gespeicherte Objekte direkt nebeneinander.")
+    
+    projects = db_get_projects(sb_client, st.session_state["user_email"]) if sb_client else []
+    
+    if len(projects) >= 2:
+        selected_deals = st.multiselect("Wählen Sie 2 bis 3 Objekte aus:", [p["project_name"] for p in projects], default=[p["project_name"] for p in projects[:2]])
         
-        if selected_strategy != "Benutzerdefiniert":
-            strat = STRATEGIES[selected_strategy]
-            target_cf, tol_cf = strat["target_cf"], strat["tol_cf"]
-            target_rendite, tol_rendite = strat["target_rendite"], strat["tol_rendite"]
-            target_roe, tol_roe = strat["target_roe"], strat["tol_roe"]
-            target_dscr, tol_dscr = strat["target_dscr"], strat["tol_dscr"]
+        if len(selected_deals) >= 2:
+            cols = st.columns(len(selected_deals))
+            
+            comp_data = []
+            for idx, deal_name in enumerate(selected_deals):
+                p = next(proj for proj in projects if proj["project_name"] == deal_name)
+                d = p["input_data"]
+                
+                # Calc
+                df_c, tot_inv, ek_abs, fk_tot, irr, _ = calc_10y_projection({
+                    'kaufpreis': d["kaufpreis"], 'sanierung': d["sanierung"],
+                    'bundesland': d["bundesland"], 'notar_proz': d["notar_p"]/100,
+                    'makler_proz': d["makler_p"]/100, 'sonst_nk': d["sonst_nk"],
+                    'disagio_proz': d["disagio_p"]/100, 'ek_quote': d["ek_quote"],
+                    'hb_share': d["hb_share"], 'hb_zins': d["hb_zins"]/100,
+                    'hb_tilg': d["hb_tilg"]/100, 'grace_years': d["grace_years"],
+                    'kfw_amt': d["kfw_amt"], 'kfw_zins': d["kfw_zins"]/100,
+                    'kfw_tilg': d["kfw_tilg"]/100, 'kfw_grant': d["kfw_grant"],
+                    'sondertilg': d["sondertilg"], 'ist_sqm': d["ist_sqm"],
+                    'target_sqm': d["target_sqm"], 'adj_year': d["adj_year"],
+                    'park': d["park"], 'vac_rate': d["vac_rate"],
+                    'qm': d["qm"], 'hausgeld': d["hausgeld"],
+                    'inst_sqm': d["inst_sqm"], 'mgt_monat': d["mgt_monat"],
+                    'capex_j3': d["capex_j3"], 'capex_j6': d["capex_j6"],
+                    'tax_rate': d["tax_rate"], 'afa_model': d["afa_model"],
+                    'afa_lin': d["afa_lin"]/100, 'miet_inc': d["miet_inc"]/100,
+                    'cost_inc': d["cost_inc"]/100, 'val_inc': d["val_inc"]/100,
+                    'wacc': d["wacc"]/100, 'exit_cost': d["exit_cost"]/100,
+                    'grund_anteil': d["grund_anteil"]
+                })
+                
+                cf_m = df_c.loc[0, 'CF n. St.'] / 12
+                rendite = df_c.loc[0, 'Bruttomietrendite'] * 100
+                
+                with cols[idx]:
+                    st.subheader(f"🏢 {deal_name}")
+                    st.metric("Kaufpreis", f"{d['kaufpreis']:,.0f} €")
+                    st.metric("Cashflow n. St.", f"{cf_m:,.2f} €/M")
+                    st.metric("Bruttomietrendite", f"{rendite:.2f} %")
+                    st.metric("10-Jahres IRR", f"{irr*100:.2f} %")
+                    st.metric("Eigenkapital", f"{ek_abs:,.0f} €")
         else:
-            target_cf = st.number_input("Ziel Cashflow (€/M)", value=50.0)
-            tol_cf = st.number_input("Toleranz Cashflow (€/M)", value=0.0)
-            target_rendite = st.number_input("Ziel Rendite (%)", value=4.5)
-            tol_rendite = st.number_input("Toleranz Rendite (%)", value=3.8)
-            target_roe = st.number_input("Ziel ROE (%)", value=8.0)
-            tol_roe = st.number_input("Toleranz ROE (%)", value=4.0)
-            target_dscr = st.number_input("Ziel DSCR", value=1.20)
-            tol_dscr = st.number_input("Toleranz DSCR", value=1.05)
+            st.warning("Bitte wählen Sie mindestens 2 Objekte aus.")
+    else:
+        st.info("💡 Sie benötigen mindestens 2 gespeicherte Objekte in der Cloud-Datenbank, um den Deal-Vergleich zu nutzen.")
 
-    st.subheader("🤖 KI-Import")
-    api_key_input = st.text_input("Gemini API Key", value=st.session_state["gemini_api_key"], type="password")
-    if api_key_input:
-        st.session_state["gemini_api_key"] = api_key_input
+# =============================================================================
+# MODUL 4: 🧮 MAX. KAUFPREIS RECHNER (GEBOTS-RECHNER)
+# =============================================================================
+elif nav_choice == "🧮 Max. Kaufpreis Rechner":
+    st.header("🧮 Maximaler Kaufpreis Rechner (Reverse-Engineering)")
+    st.caption("Berechnen Sie, wie viel Sie maximal für ein Objekt bieten dürfen, um Ihr Cashflow-Ziel zu erreichen.")
+
+    col_g1, col_g2 = st.columns(2)
+    
+    with col_g1:
+        desired_cf = st.number_input("Wunsch-Cashflow n. St. (€/Monat)", value=100.0, step=25.0)
+        current_kp = st.session_state["kaufpreis"]
+        st.info(f"Aktuell angesetzter Kaufpreis: **{current_kp:,.0f} €**")
+
+    with col_g2:
+        # Simple Iteration / Binary Search for Max Price
+        best_price = current_kp
+        for test_kp in range(50000, 2000000, 5000):
+            test_data = dict(input_data)
+            test_data['kaufpreis'] = float(test_kp)
+            df_test, _, _, _, _, _ = calc_10y_projection(test_data)
+            test_cf = df_test.loc[0, 'CF n. St.'] / 12
+            if test_cf >= desired_cf:
+                best_price = test_kp
+            else:
+                break
+                
+        st.metric("Maximaler Kaufpreis (Gebots-Obergrenze)", f"{best_price:,.0f} €", delta=f"{best_price - current_kp:,.0f} € zum Verkäuferpreis")
+        st.caption("Verwenden Sie diesen Wert als verhandlungssichere Argumentationsgrundlage beim Verkäufer!")
+
+# =============================================================================
+# MODUL 5: ⚙️ EINSTELLUNGEN
+# =============================================================================
+elif nav_choice == "⚙️ Einstellungen":
+    st.header("⚙️ Zentrale Einstellungen & Zugänge")
+    st.caption("Verwalten Sie Ihre API-Schlüssel, Datenbank-Verbindungen und Investment-Strategien.")
+
+    tab_s1, tab_s2 = st.tabs(["🔑 API-Keys & Datenbank", "🎯 Investment-Strategien"])
+
+    with tab_s1:
+        st.subheader("Google Gemini API Key")
+        gemini_key = st.text_input("API Key", value=st.session_state.get("gemini_api_key", ""), type="password")
+        if gemini_key:
+            st.session_state["gemini_api_key"] = gemini_key
+            st.success("Gemini API Key gespeichert!")
+
+        st.divider()
+        st.subheader("Supabase Datenbank Verbindungsdaten")
+        sb_u = st.text_input("Supabase URL", value=st.session_state.get("supabase_url", ""), type="password")
+        sb_k = st.text_input("Supabase Anon Key", value=st.session_state.get("supabase_key", ""), type="password")
+        if sb_u and sb_k:
+            st.session_state["supabase_url"] = sb_u
+            st.session_state["supabase_key"] = sb_k
+            st.success("Supabase-Verbindung konfiguriert!")
+
+    with tab_s2:
+        st.subheader("Standard-Investment-Strategie wählen")
+        chosen_strat = st.selectbox("Aktive Strategie", list(STRATEGIES.keys()), index=0)
+        st.session_state["selected_strategy_name"] = chosen_strat
         
-    uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
-    
-    if uploaded_pdf and st.session_state["gemini_api_key"]:
-        if st.button("✨ Exposé per KI analysieren"):
-            with st.spinner("Lese PDF..."):
-                ai_data = analyze_pdf_with_gemini(st.session_state["gemini_api_key"], uploaded_pdf)
-                if ai_data:
-                    if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
-                    if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
-                    if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
-                    if ai_data.get("ist_miete_sqm"): st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
-                    if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
-                    if ai_data.get("objektname"): st.session_state["obj_name"] = str(ai_data["objektname"])
-                    st.success("KI-Daten in Formular übernommen!")
-                    st.rerun()
-
-    st.divider()
-    st.subheader("1. Stammdaten")
-    st.text_input("Objektname", key="obj_name")
-    st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
-    st.number_input("Kaufpreis (€)", key="kaufpreis", step=10000.0)
-    st.number_input("Wohnfläche (m²)", key="qm", step=5.0)
-    st.number_input("Baujahr", key="baujahr", step=1)
-    st.number_input("Sanierungskosten J1-3 (€)", key="sanierung", step=5000.0)
-    st.slider("Grundstücksanteil (%)", 0.0, 0.50, key="grund_anteil", step=0.05)
-
-    st.subheader("2. Kaufnebenkosten")
-    st.number_input("Notar & Grundbuch (%)", key="notar_p")
-    st.number_input("Makler (%)", key="makler_p")
-    st.number_input("Sonstige Nebenkosten (€)", key="sonst_nk")
-    st.number_input("Disagio (%)", key="disagio_p")
-
-    st.subheader("3. Finanzierung")
-    st.slider("Eigenkapitalquote (%)", 0.0, 0.50, key="ek_quote", step=0.05)
-    st.slider("Anteil Hausbank (%)", 0.50, 1.0, key="hb_share", step=0.05)
-    st.number_input("Hausbank Zins (%)", key="hb_zins")
-    st.number_input("Hausbank Tilgung (%)", key="hb_tilg")
-    st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
-    
-    st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
-    st.number_input("KfW Zins (%)", key="kfw_zins")
-    st.number_input("KfW Tilgung (%)", key="kfw_tilg")
-    st.number_input("KfW Tilgungszuschuss (€)", key="kfw_grant")
-    st.number_input("Sondertilgung (€/Jahr)", key="sondertilg", step=500.0)
-
-    st.subheader("4. Mieten & Betriebskosten")
-    st.number_input("Ist-Kaltmiete (€/m²)", key="ist_sqm")
-    st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm")
-    st.number_input("Jahr der Ziel-Miete", key="adj_year", min_value=1, max_value=10)
-    st.number_input("Sonstige Miete/Monat (€)", key="park")
-    st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate")
-    
-    st.number_input("Nicht umlegb. Hausgeld (€/Monat)", key="hausgeld")
-    st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm")
-    st.number_input("Verwaltung (€/Monat)", key="mgt_monat")
-    st.number_input("CapEx Instandhaltung Jahr 3 (€)", key="capex_j3")
-    st.number_input("CapEx Instandhaltung Jahr 6 (€)", key="capex_j6")
-
-    st.subheader("5. Steuer & Makro")
-    st.slider("Persönlicher Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
-    st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
-    st.number_input("Linearer AfA-Satz (%)", key="afa_lin")
-    st.number_input("Mietsteigerung p.a. (%)", key="miet_inc")
-    st.number_input("Cost Inflation p.a. (%)", key="cost_inc")
-    st.number_input("Wertsteigerung p.a. (%)", key="val_inc")
-    st.number_input("WACC / Diskontierung (%)", key="wacc")
-    st.number_input("Verkaufsnebenkosten (%)", key="exit_cost")
-
-# Pack inputs into dict for calculation
-input_data = {
-    'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
-    'bundesland': st.session_state["bundesland"], 'notar_proz': st.session_state["notar_p"] / 100,
-    'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
-    'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_quote': st.session_state["ek_quote"],
-    'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
-    'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
-    'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"] / 100,
-    'kfw_tilg': st.session_state["kfw_tilg"] / 100, 'kfw_grant': st.session_state["kfw_grant"],
-    'sondertilg': st.session_state["sondertilg"], 'ist_sqm': st.session_state["ist_sqm"],
-    'target_sqm': st.session_state["target_sqm"], 'adj_year': st.session_state["adj_year"],
-    'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate"],
-    'qm': st.session_state["qm"], 'hausgeld': st.session_state["hausgeld"],
-    'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
-    'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
-    'tax_rate': st.session_state["tax_rate"], 'afa_model': st.session_state["afa_model"],
-    'afa_lin': st.session_state["afa_lin"] / 100, 'miet_inc': st.session_state["miet_inc"] / 100,
-    'cost_inc': st.session_state["cost_inc"] / 100, 'val_inc': st.session_state["val_inc"] / 100,
-    'wacc': st.session_state["wacc"] / 100, 'exit_cost': st.session_state["exit_cost"] / 100,
-    'grund_anteil': st.session_state["grund_anteil"]
-}
-
-df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data)
-
-# -----------------------------------------------------------------------------
-# MAIN CONTENT DASHBOARD
-# -----------------------------------------------------------------------------
-st.title(f"🏢 {st.session_state['obj_name']}")
-st.caption(f"Standort: {st.session_state['bundesland']} | Wohnfläche: {st.session_state['qm']:.0f} m² | Baujahr: {st.session_state['baujahr']} | Strategie: **{selected_strategy}**")
-
-# KERN-KPIS & AMPEL
-val_cf = df_proj.loc[0, 'CF n. St.'] / 12
-val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
-val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100
-hb_annu = fk_tot * (st.session_state["hb_share"] * 100 / 100) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
-kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
-val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
-
-status_cf, label_cf = get_ampel_status(val_cf, target_cf, tol_cf)
-status_rendite, label_rendite = get_ampel_status(val_rendite, target_rendite, tol_rendite)
-status_roe, label_roe = get_ampel_status(val_roe, target_roe, tol_roe)
-status_dscr, label_dscr = get_ampel_status(val_dscr, target_dscr, tol_dscr)
-
-statuses = [status_cf, status_rendite, status_roe, status_dscr]
-
-if statuses.count("green") == 4:
-    st.success("🟢 **TOP DEAL:** Dieses Objekt erfüllt exakt alle Kriterien deiner gewählten Strategie!")
-elif "red" in statuses:
-    red_count = statuses.count("red")
-    st.error(f"🔴 **DEAL-BREAKER / PRÜFBEDARF:** Das Objekt verfehlt {red_count} wichtige(s) Ziel-Kriterium/Kriterien deiner Strategie.")
-else:
-    st.warning("🟡 **AKZEPTABEL / TOLERANZ:** Das Objekt liegt in allen Punkten im Toleranzbereich.")
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-    st.markdown(f"""
-    <div class="ampel-card ampel-{status_cf}">
-        <div class="ampel-title">Cashflow n. St.</div>
-        <div class="ampel-value">{val_cf:,.2f} €/M</div>
-        <div class="ampel-status">{label_cf} (Ziel: ≥ {target_cf:,.0f} €)</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c2:
-    st.markdown(f"""
-    <div class="ampel-card ampel-{status_rendite}">
-        <div class="ampel-title">Bruttomietrendite</div>
-        <div class="ampel-value">{val_rendite:.2f} %</div>
-        <div class="ampel-status">{label_rendite} (Ziel: ≥ {target_rendite:.1f} %)</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c3:
-    st.markdown(f"""
-    <div class="ampel-card ampel-{status_roe}">
-        <div class="ampel-title">EK-Rendite (ROE)</div>
-        <div class="ampel-value">{val_roe:.2f} %</div>
-        <div class="ampel-status">{label_roe} (Ziel: ≥ {target_roe:.1f} %)</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c4:
-    st.markdown(f"""
-    <div class="ampel-card ampel-{status_dscr}">
-        <div class="ampel-title">DSCR Schuldendienst</div>
-        <div class="ampel-value">{val_dscr:.2f}</div>
-        <div class="ampel-status">{label_dscr} (Ziel: ≥ {target_dscr:.2f})</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-limit_15 = afa_base * 0.15
-if st.session_state["sanierung"] > limit_15:
-    st.warning(f"⚠️ **§6 EStG 15%-Hürde überschritten:** Ihre Sanierungskosten ({st.session_state['sanierung']:,.0f} €) liegen über der 15%-Grenze ({limit_15:,.0f} €). Diese müssen über 50 Jahre aktiviert werden.")
-
-tab_dash, tab_plan, tab_tax, tab_stress = st.tabs([
-    "📊 Executive Dashboard", "📅 10-Jahres Finanzplan", "⚖️ Steuer & VV-GmbH", "💣 Stresstest & Refinanzierung"
-])
-
-with tab_dash:
-    col_chart1, col_chart2 = st.columns([2, 1])
-    
-    with col_chart1:
-        st.subheader("Vermögensaufbau vs. Restschuld")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#10b981", width=3)))
-        fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#ef4444", width=3)))
-        fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital / NAV (€)", marker_color="#3b82f6", opacity=0.4))
-        fig.update_layout(template="plotly_white", height=400, margin=dict(l=20, r=20, t=30, b=20))
-        st.plotly_chart(fig, use_container_width=True)
-        
-    with col_chart2:
-        st.subheader("Gesamtinvestition & Kapital")
-        fig_pie = px.pie(
-            names=['Eigenkapital', 'Hausbank Darlehen', 'KfW Darlehen'],
-            values=[ek_abs, fk_tot * (st.session_state["hb_share"]), max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
-            color_discrete_sequence=['#3b82f6', '#0f172a', '#06b6d4'],
-            hole=0.4
-        )
-        fig_pie.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-with tab_plan:
-    st.subheader("Dynamischer 10-Jahres Liquiditätsverlauf")
-    st.dataframe(df_proj.style.format({
-        "Bruttomietrendite": "{:.2%}", "Brutto-Kaltmiete": "{:,.0f} €", "NOI": "{:,.0f} €",
-        "Zinsen": "{:,.0f} €", "Tilgung": "{:,.0f} €", "CF v. St.": "{:,.0f} €",
-        "AfA": "{:,.0f} €", "Steuer": "{:,.0f} €", "CF n. St.": "{:,.0f} €",
-        "Restschuld": "{:,.0f} €", "Objektwert": "{:,.0f} €", "NAV": "{:,.0f} €", "LTV": "{:.1%}"
-    }), use_container_width=True)
-
-with tab_tax:
-    st.subheader("Rechtsform-Vergleich: Privatbesitz vs. VV-GmbH")
-    tot_taxable = df_proj['NOI'].sum() - df_proj['Zinsen'].sum() - df_proj['AfA'].sum()
-    tax_privat = tot_taxable * (st.session_state["tax_rate"])
-    tax_gmbh = tot_taxable * 0.15825
-    
-    col_t1, col_t2, col_t3 = st.columns(3)
-    col_t1.metric("Steuer Haltephase (Privat)", f"{tax_privat:,.0f} €")
-    col_t2.metric("Steuer Haltephase (VV-GmbH)", f"{tax_gmbh:,.0f} €")
-    col_t3.metric("Ersparnis Haltephase GmbH", f"{tax_privat - tax_gmbh:,.0f} €", delta_color="normal")
-    
-    st.info("💡 **GmbH-Fazit:** Eine VV-GmbH spart in der Haltephase erhebliche Ertragsteuern. Beachten Sie jedoch den steuerfreien Verkauf nach 10 Jahren im Privatbesitz (§23 EStG).")
-
-with tab_stress:
-    st.subheader("Refinanzierungs-Shock (Zinsbindungsszenario Jahr 11)")
-    restschuld_10 = df_proj.loc[9, 'Restschuld']
-    st.write(f"Verbleibende Restschuld nach 10 Jahren: **{restschuld_10:,.2f} €**")
-    
-    rates = [0.035, 0.045, 0.055, 0.065, 0.075]
-    refin_data = []
-    for r in rates:
-        new_rate = (restschuld_10 * (r + (st.session_state["hb_tilg"] / 100))) / 12
-        new_dscr = df_proj.loc[9, 'NOI'] / (new_rate * 12) if new_rate > 0 else 0
-        refin_data.append({
-            "Anschluss-Zinssatz": f"{r*100:.1f} %",
-            "Neue Monatliche Rate": f"{new_rate:,.2f} €",
-            "Neuer DSCR": f"{new_dscr:.2f}",
-            "Status": "✅ Tragfähig" if new_dscr >= 1.15 else "⚠️ Risiko"
-        })
-    st.table(pd.DataFrame(refin_data))
+        st.markdown("**Aktuelle Schwellenwerte:**")
+        st.json(STRATEGIES[chosen_strat])
