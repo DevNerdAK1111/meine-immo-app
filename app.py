@@ -19,6 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apple Design System CSS
 st.markdown("""
 <style>
     /* Global Typography & Colors */
@@ -126,7 +127,6 @@ STRATEGIES = {
 # SECRETS & HELPERS
 # -----------------------------------------------------------------------------
 def get_gemini_api_key() -> str:
-    """Holt den Gemini API-Key entweder aus der Session oder automatisch aus den Secrets."""
     return st.session_state.get("gemini_api_key", "") or st.secrets.get("GEMINI_API_KEY", "")
 
 def get_supabase_client() -> Client:
@@ -173,7 +173,7 @@ def db_delete_project(supabase: Client, project_id: int):
         st.error(f"Fehler beim Löschen: {e}")
 
 # -----------------------------------------------------------------------------
-# CALCULATION & AI FUNCTIONS (WITH FRIENDLY ERROR HANDLING)
+# CALCULATION & AI FUNCTIONS
 # -----------------------------------------------------------------------------
 def get_ampel_status(val, target_green, target_yellow):
     if val >= target_green:
@@ -328,11 +328,14 @@ def calc_10y_projection(data):
         
         obj_val *= (1 + data['val_inc'])
         nav = obj_val - restschuld_tot
-        ltv = restschuld_tot / obj_val if obj_val > 0 else 0
+        ltv = restschuld_tot / obj_val if obj_val > 0 else 0.0
+        
+        # Sichere Berechnung der Bruttomietrendite (Vermeidung von ZeroDivisionError)
+        bruttomietrendite = gross_rent / kp if kp > 0 else 0.0
         
         rows.append({
             "Jahr": yr,
-            "Bruttomietrendite": gross_rent / kp,
+            "Bruttomietrendite": bruttomietrendite,
             "Brutto-Kaltmiete": gross_rent,
             "NOI": noi,
             "Zinsen": zins_tot,
@@ -690,7 +693,7 @@ elif nav_choice == "➕ Analyse & Rechner":
     
     val_cf = df_proj.loc[0, 'CF n. St.'] / 12
     val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
-    val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100
+    val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100 if ek_abs > 0 else 0.0
     hb_annu = fk_tot * (st.session_state["hb_share"]) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
     kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
     val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
