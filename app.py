@@ -113,7 +113,6 @@ STRATEGIES = {
 # SECRETS & HELPERS
 # -----------------------------------------------------------------------------
 def get_gemini_api_key() -> str:
-    """Priorisiert Streamlit Secrets, um alte Browser-Session-Keys zu übergehen."""
     secret_key = st.secrets.get("GEMINI_API_KEY", "")
     if secret_key:
         return secret_key
@@ -204,7 +203,8 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        # Umstellung auf gemini-1.5-flash für vollen Free-Tier-Support!
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
                 
         if not response or not response.text:
@@ -225,9 +225,7 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
             st.error(
                 "⏳ **API-Limit von Google kurzzeitig erreicht!**\n\n"
                 "Das kostenlose Anfrage-Limit für diesen Gemini-Schlüssel wurde überschritten.\n\n"
-                "**Lösungsmöglichkeiten:**\n"
-                "1. Bitte **1 bis 2 Minuten warten** und erneut versuchen.\n"
-                "2. Ein neues Projekt in AI Studio anlegen oder einen Key mit einem **zweiten Gmail-Konto** erstellen."
+                "**Lösung:** Bitte 1 Minute warten oder ein kostenloses Abrechnungskonto in Google Cloud verknüpfen."
             )
         elif "API_KEY" in err_msg.upper() or "INVALID" in err_msg.upper():
             st.error("🔑 **Ungültiger Gemini API-Key:** Bitte überprüfen Sie Ihren Schlüssel unter *⚙️ Einstellungen*.")
@@ -465,7 +463,6 @@ if not st.session_state["authenticated"]:
 # MAIN APPLICATION HEADER & APPLE TOP NAVIGATION BUTTONS
 # -----------------------------------------------------------------------------
 
-# APPLE TOP HEADER
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
     st.markdown("""
@@ -480,7 +477,6 @@ with col_h2:
         st.session_state["user_email"] = ""
         st.rerun()
 
-# APPLE ICON NAVIGATION BUTTONS
 nav_items = ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis", "⚙️ Einstellungen"]
 nav_cols = st.columns(len(nav_items))
 
@@ -496,7 +492,7 @@ st.divider()
 nav_choice = st.session_state["nav_choice"]
 
 # =============================================================================
-# MODUL 1: 📁 MEINE PROJEKTE (PIPELINE DASHBOARD)
+# MODUL 1: 📁 MEINE PROJEKTE
 # =============================================================================
 if nav_choice == "📁 Meine Projekte":
     st.markdown("## 📁 Meine Immobilien-Pipeline")
@@ -568,7 +564,7 @@ if nav_choice == "📁 Meine Projekte":
         st.info("💡 Noch keine Objekte in der Datenbank gespeichert. Wechseln Sie zum Reiter **'➕ Analyse & Rechner'**, um Ihr erstes Objekt einzugeben!")
 
 # =============================================================================
-# MODUL 2: ➕ ANALYSE & RECHNER (KERN-TOOL)
+# MODUL 2: ➕ ANALYSE & RECHNER
 # =============================================================================
 elif nav_choice == "➕ Analyse & Rechner":
     
@@ -753,7 +749,7 @@ elif nav_choice == "➕ Analyse & Rechner":
         st.table(pd.DataFrame(refin_data))
 
 # =============================================================================
-# MODUL 3: ⚖️ DEAL-VERGLEICH (SIDE-BY-SIDE)
+# MODUL 3: ⚖️ DEAL-VERGLEICH
 # =============================================================================
 elif nav_choice == "⚖️ Deal-Vergleich":
     st.markdown("## ⚖️ Multi-Deal Vergleich")
