@@ -12,115 +12,117 @@ from bs4 import BeautifulSoup
 from supabase import create_client, Client
 
 # -----------------------------------------------------------------------------
-# PAGE CONFIG & APPLE DESIGN SYSTEM (CSS)
+# PAGE CONFIG & VALUON ESTATE DESIGN SYSTEM (CSS)
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="ImmoAnalyse Pro",
-    page_icon="🏢",
+    page_title="Valuon Estate",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 st.markdown("""
 <style>
-    /* Global Clean Typography & Apple Colors */
+    /* Global Typography & Heritage Color Palette */
     html, body, [class*="css"] {
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-        color: #1d1d1f;
-        background-color: #fafafa;
+        color: #2B2D2F;
+        background-color: #F7F4EC;
     }
     
     .main .block-container {
         padding-top: 1.5rem;
         padding-bottom: 3rem;
         max-width: 1200px;
+        background-color: #F7F4EC;
     }
     
-    /* Hide top default Streamlit padding/header artifacts */
     header[data-testid="stHeader"] {
         background: transparent !important;
         z-index: 1;
     }
     
-    /* Apple Clean Cards */
-    .apple-card {
+    /* Valuon Estate Cards */
+    .valuon-card {
         background-color: #ffffff;
-        border-radius: 18px;
+        border-radius: 14px;
         padding: 24px;
         margin-bottom: 20px;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        border: 1px solid #D4C9B8;
+        box-shadow: 0 4px 12px rgba(19, 56, 26, 0.03);
     }
     
-    .apple-placeholder {
-        background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
-        border: 2px dashed #d2d2d7;
-        border-radius: 20px;
+    .valuon-placeholder {
+        background: linear-gradient(135deg, #ffffff 0%, #F7F4EC 100%);
+        border: 2px dashed #D4C9B8;
+        border-radius: 16px;
         padding: 50px 30px;
         text-align: center;
         margin: 20px 0;
     }
     
-    /* Apple Pill Buttons styling */
+    /* Custom Button Design */
     .stButton > button {
         border-radius: 980px !important;
         font-weight: 500 !important;
         padding: 8px 20px !important;
         transition: all 0.2s ease !important;
-        border: 1px solid #d2d2d7 !important;
+        border: 1px solid #D4C9B8 !important;
         background-color: #ffffff !important;
-        color: #1d1d1f !important;
+        color: #2B2D2F !important;
     }
     
     .stButton > button:hover {
-        border-color: #0066cc !important;
-        color: #0066cc !important;
-        background-color: #f5f5f7 !important;
+        border-color: #13381A !important;
+        color: #13381A !important;
+        background-color: #F7F4EC !important;
     }
     
     .stButton > button[kind="primary"] {
-        background-color: #0066cc !important;
+        background-color: #13381A !important;
         color: #ffffff !important;
-        border-color: #0066cc !important;
+        border-color: #13381A !important;
     }
     
     .stButton > button[kind="primary"]:hover {
-        background-color: #0052a3 !important;
+        background-color: #1b4d25 !important;
         color: #ffffff !important;
     }
 
-    /* KPI Ampel Cards */
-    .ampel-card {
-        border-radius: 16px;
+    /* Metric Card System */
+    .metric-card {
+        border-radius: 12px;
         padding: 18px;
         margin-bottom: 15px;
-        border: 1px solid rgba(0,0,0,0.05);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        border: 1px solid #D4C9B8;
+        background-color: #ffffff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
     }
-    .ampel-green { background-color: #eefdf4; border-left: 5px solid #22c55e; color: #14532d; }
-    .ampel-yellow { background-color: #fefce8; border-left: 5px solid #eab308; color: #713f12; }
-    .ampel-red { background-color: #fef2f2; border-left: 5px solid #ef4444; color: #7f1d1d; }
-    .ampel-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 4px; }
-    .ampel-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
-    .ampel-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
+    .metric-green { border-left: 4px solid #13381A; color: #13381A; }
+    .metric-yellow { border-left: 4px solid #A37841; color: #5a4223; }
+    .metric-red { border-left: 4px solid #8b3a2b; color: #6b2e22; }
+    
+    .metric-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 4px; }
+    .metric-value { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
+    .metric-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
     
     /* Section Badges */
     .badge-expose {
-        background-color: #e8f2ff;
-        color: #0066cc;
+        background-color: #EBF2EC;
+        color: #13381A;
         padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 0.8rem;
+        border-radius: 10px;
+        font-size: 0.78rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 10px;
     }
     .badge-investor {
-        background-color: #f3e8ff;
-        color: #7e22ce;
+        background-color: #F4EFE6;
+        color: #A37841;
         padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 0.8rem;
+        border-radius: 10px;
+        font-size: 0.78rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 10px;
@@ -185,14 +187,14 @@ def db_save_project(supabase: Client, user_id: str, project_name: str, payload: 
         if res.data and len(res.data) > 0:
             pid = res.data[0]["id"]
             supabase.table("projects").update({"input_data": payload}).eq("id", pid).execute()
-            st.success(f"Projekt '{project_name}' aktualisiert!")
+            st.success(f"Projekt '{project_name}' aktualisiert.")
         else:
             supabase.table("projects").insert({
                 "user_id": user_id,
                 "project_name": project_name,
                 "input_data": payload
             }).execute()
-            st.success(f"Projekt '{project_name}' gespeichert!")
+            st.success(f"Projekt '{project_name}' gespeichert.")
     except Exception as e:
         st.error(f"Fehler beim Speichern: {e}")
 
@@ -208,7 +210,7 @@ def db_get_projects(supabase: Client, user_id: str):
 def db_delete_project(supabase: Client, project_id: int):
     try:
         supabase.table("projects").delete().eq("id", project_id).execute()
-        st.success("Projekt gelöscht!")
+        st.success("Projekt gelöscht.")
     except Exception as e:
         st.error(f"Fehler beim Löschen: {e}")
 
@@ -224,7 +226,7 @@ def fetch_text_from_url(url: str) -> str:
         response = requests.get(url, headers=headers, timeout=12)
         
         if response.status_code == 403 or "captcha" in response.text.lower():
-            st.warning("🛡️ Die Website schützt sich mit einem Bot-Schutz (z. B. ImmoScout24). Bitte kopieren Sie den Text der Anzeige und nutzen Sie die Option '📝 Text kopieren'.")
+            st.warning("Die Zielseite blockiert automatisierte Abfragen (Bot-Schutz). Bitte kopieren Sie den Anzeigentext manuell.")
             return ""
             
         response.raise_for_status()
@@ -243,12 +245,11 @@ def fetch_text_from_url(url: str) -> str:
         return ""
 
 def analyze_text_with_gemini(api_key, raw_text):
-    """Extrahiert REIN die im Exposé vorhandenen Objekt-Fakten."""
     try:
         genai.configure(api_key=api_key)
         
         prompt = f"""
-        Du bist ein Immobilien-Experte. Analysiere den folgenden Immobilien-Anzeigentext und extrahiere NUR die reinen Objekt-Fakten als valides JSON.
+        Du bist ein Immobilien-Experte. Analysiere den folgenden Anzeigentext und extrahiere NUR die reinen Objekt-Fakten als valides JSON.
         Verwende 0 oder "Unbekannt", falls ein Wert im Text nicht vorhanden ist.
 
         Geforderte Felder:
@@ -317,11 +318,11 @@ def analyze_text_with_gemini(api_key, raw_text):
     except Exception as e:
         err_msg = str(e)
         if "429" in err_msg or "quota" in err_msg.lower():
-            st.error("⏳ **API-Limit von Google kurzzeitig erreicht!** Bitte 1 Minute warten.")
+            st.error("API-Limit von Google erreicht. Bitte einen Moment warten.")
         elif "API_KEY" in err_msg.upper() or "INVALID" in err_msg.upper():
-            st.error("🔑 **Ungültiger Gemini API-Key:** Bitte unter *⚙️ Einstellungen* prüfen.")
+            st.error("Ungültiger API-Schlüssel. Bitte in den Einstellungen prüfen.")
         else:
-            st.error(f"⚠️ **Fehler bei der KI-Analyse:** {err_msg}")
+            st.error(f"Fehler bei der Datenextraktion: {err_msg}")
         return None
 
 def calc_10y_projection(data):
@@ -438,13 +439,13 @@ def calc_10y_projection(data):
         
     return df, tot_inv, ek_abs, fk_tot, irr, afa_base
 
-def get_ampel_status(val, target_green, target_yellow):
+def get_metric_status(val, target_green, target_yellow):
     if val >= target_green:
-        return "green", "🟢 Ziel erfüllt"
+        return "green", "Zielwert erreicht"
     elif val >= target_yellow:
-        return "yellow", "🟡 Toleranzbereich"
+        return "yellow", "Im Toleranzbereich"
     else:
-        return "red", "🔴 Kriterium verfehlt"
+        return "red", "Kriterium unterschritten"
 
 # -----------------------------------------------------------------------------
 # SESSION STATE INITIALIZATION
@@ -458,7 +459,7 @@ if "gemini_api_key" not in st.session_state:
 if "selected_strategy_name" not in st.session_state:
     st.session_state["selected_strategy_name"] = "Konservativ / Ausgewogen (Standard)"
 if "nav_choice" not in st.session_state:
-    st.session_state["nav_choice"] = "📁 Meine Projekte"
+    st.session_state["nav_choice"] = "Pipeline"
 
 default_state = {
     "obj_name": "", "bundesland": "Niedersachsen", "kaufpreis": 0.0,
@@ -479,14 +480,14 @@ for k, v in default_state.items():
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE (CLEAN LANDING PAGE WITHOUT EXTRA BARS)
+# AUTH GATE (CLEAN LANDING PAGE)
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
-    <div style="text-align: center; padding: 20px 20px 10px 20px;">
-        <h1 style="font-size: 2.8rem; font-weight: 800; letter-spacing: -1px; color: #1d1d1f;">ImmoAnalyse Pro</h1>
-        <p style="font-size: 1.15rem; color: #86868b; max-width: 550px; margin: 0 auto 20px auto;">
-            Die smarte PropTech-Suite für professionelle Immobilien-Investoren.
+    <div style="text-align: center; padding: 30px 20px 10px 20px;">
+        <h1 style="font-size: 2.8rem; font-weight: 800; letter-spacing: -1px; color: #13381A;">Valuon Estate</h1>
+        <p style="font-size: 1.15rem; color: #555759; max-width: 550px; margin: 0 auto 25px auto;">
+            Professional Real Estate Analysis & Valuation Suite.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -495,30 +496,30 @@ if not st.session_state["authenticated"]:
 
     with col_landing1:
         st.markdown("""
-        <div class="apple-card">
-            <h3 style="margin-top:0; color:#0066cc;">🤖 KI-Import für Exposés & Links</h3>
-            <p style="color:#86868b; margin-bottom:0;">Lade Web-Links oder PDFs hoch – Gemini AI extrahiert die echten Objekt-Fakten ohne Halluzinationen.</p>
+        <div class="valuon-card">
+            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Automated Parsing</h3>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Extrahieren Sie Objektdaten direkt aus Web-Links oder Exposé-Dokumenten.</p>
         </div>
-        <div class="apple-card">
-            <h3 style="margin-top:0; color:#0066cc;">📊 Dynamische 10-Jahres-Kalkulation</h3>
-            <p style="color:#86868b; margin-bottom:0;">Trennung zwischen Objekt-Fakten und deinen individuellen Bank- & Finanzierungskonditionen.</p>
+        <div class="valuon-card">
+            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Dynamic Projections</h3>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Przise 10-Jahres-Modellierung getrennt nach Objekt-Fakten und Finanzierungsstruktur.</p>
         </div>
-        <div class="apple-card">
-            <h3 style="margin-top:0; color:#0066cc;">☁️ Multi-Projekt Cloud</h3>
-            <p style="color:#86868b; margin-bottom:0;">Speichere all deine Objekte in der Cloud und vergleiche sie Side-by-Side.</p>
+        <div class="valuon-card">
+            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Cloud Portfolio</h3>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Sichere Speicherung und direkter Vergleich Ihrer Anlageobjekte.</p>
         </div>
         """, unsafe_allow_html=True)
 
     with col_landing2:
-        st.markdown("<div class='apple-card'>", unsafe_allow_html=True)
-        st.markdown("### 🔐 Anmelden")
+        st.markdown("<div class='valuon-card'>", unsafe_allow_html=True)
+        st.markdown("### Anmeldung")
         auth_tab1, auth_tab2 = st.tabs(["Login", "Registrieren"])
         
         with auth_tab1:
-            email_in = st.text_input("E-Mail Adresse", key="login_email")
+            email_in = st.text_input("E-Mail-Adresse", key="login_email")
             pass_in = st.text_input("Passwort", type="password", key="login_pass")
             
-            if st.button("🔑 Anmelden", type="primary", use_container_width=True):
+            if st.button("Anmelden", type="primary", use_container_width=True):
                 if sb_client:
                     try:
                         res = sb_client.auth.sign_in_with_password({"email": email_in, "password": pass_in})
@@ -533,28 +534,28 @@ if not st.session_state["authenticated"]:
                         st.session_state["user_email"] = email_in
                         st.rerun()
                     else:
-                        st.error("Bitte E-Mail und Passwort eingeben.")
+                        st.error("Bitte Anmeldedaten eingeben.")
 
         with auth_tab2:
-            reg_email = st.text_input("E-Mail Adresse", key="reg_email")
+            reg_email = st.text_input("E-Mail-Adresse", key="reg_email")
             reg_pass = st.text_input("Passwort erstellen", type="password", key="reg_pass")
-            if st.button("✨ Account erstellen", use_container_width=True):
+            if st.button("Konto erstellen", use_container_width=True):
                 if sb_client:
                     try:
                         res = sb_client.auth.sign_up({"email": reg_email, "password": reg_pass})
-                        st.success("Profil erstellt! Sie können sich jetzt anmelden.")
+                        st.success("Registrierung erfolgreich. Sie können sich nun anmelden.")
                     except Exception as e:
                         st.error(f"Registrierung fehlgeschlagen: {e}")
                 else:
-                    st.success("Demo-Profil angelegt! Nutzen Sie den Login-Tab.")
+                    st.success("Demo-Profil angelegt. Bitte wechseln Sie zum Login-Tab.")
 
         st.divider()
-        if st.button("👤 Gast / Demo-Zugang", use_container_width=True):
+        if st.button("Demo-Modus starten", use_container_width=True):
             st.session_state["authenticated"] = True
-            st.session_state["user_email"] = "gast_investor@immo.de"
+            st.session_state["user_email"] = "analyst@valuon-estate.de"
             st.session_state["kaufpreis"] = 350000.0
             st.session_state["qm"] = 120.0
-            st.session_state["obj_name"] = "Muster-Objekt Hanover"
+            st.session_state["obj_name"] = "Musterobjekt Hannover"
             st.session_state["ist_sqm"] = 9.50
             st.session_state["target_sqm"] = 12.00
             st.rerun()
@@ -569,18 +570,18 @@ if not st.session_state["authenticated"]:
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
     st.markdown("""
-    <div style="font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; color: #1d1d1f;">
-        ImmoAnalyse Pro
+    <div style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; color: #13381A;">
+        Valuon Estate
     </div>
     """, unsafe_allow_html=True)
 with col_h2:
-    st.markdown(f"<div style='text-align: right; font-size: 0.85rem; color: #86868b;'>👤 {st.session_state['user_email']}</div>", unsafe_allow_html=True)
-    if st.button("🚪 Abmelden", key="btn_logout", use_container_width=True):
+    st.markdown(f"<div style='text-align: right; font-size: 0.85rem; color: #555759;'>Konto: {st.session_state['user_email']}</div>", unsafe_allow_html=True)
+    if st.button("Abmelden", key="btn_logout", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
         st.rerun()
 
-nav_items = ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis", "⚙️ Einstellungen"]
+nav_items = ["Pipeline", "Analyse", "Vergleich", "Kaufpreis", "Einstellungen"]
 nav_cols = st.columns(len(nav_items))
 
 for idx, item in enumerate(nav_items):
@@ -595,11 +596,11 @@ st.divider()
 nav_choice = st.session_state["nav_choice"]
 
 # =============================================================================
-# MODUL 1: 📁 MEINE PROJEKTE
+# MODUL 1: PIPELINE
 # =============================================================================
-if nav_choice == "📁 Meine Projekte":
-    st.markdown("## 📁 Meine Immobilien-Pipeline")
-    st.markdown("<p style='color:#86868b;'>Verwalten Sie all Ihre analysierten Objekte auf einen Blick.</p>", unsafe_allow_html=True)
+if nav_choice == "Pipeline":
+    st.markdown("## Investment-Pipeline")
+    st.markdown("<p style='color:#555759;'>Übersicht und Verwaltung aller bewerteten Objekte.</p>", unsafe_allow_html=True)
 
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
@@ -636,69 +637,69 @@ if nav_choice == "📁 Meine Projekte":
                 "Objektname": p["project_name"],
                 "Standort": d.get("bundesland", "Unbekannt"),
                 "Kaufpreis": f"{d.get('kaufpreis',0):,.0f} €",
-                "Wohnfläche": f"{d.get('qm',0):.0f} m²",
-                "Cashflow (n. St.)": f"{cf_m:,.2f} €/M",
+                "Fläche": f"{d.get('qm',0):,.0f} m²",
+                "Cashflow (netto)": f"{cf_m:,.2f} €/M",
                 "Bruttomietrendite": f"{rendite:.2f} %",
-                "10-Jahres IRR": f"{irr_p*100:.2f} %"
+                "10J-IRR": f"{irr_p*100:.2f} %"
             })
             
         df_summary = pd.DataFrame(table_rows)
         st.dataframe(df_summary, use_container_width=True)
         
         st.divider()
-        st.markdown("### ⚡ Schnell-Aktionen")
+        st.markdown("### Schnellaktionen")
         col_act1, col_act2 = st.columns(2)
         
         selected_project_name = col_act1.selectbox("Projekt auswählen", [p["project_name"] for p in projects])
         
-        if col_act1.button("📥 Projekt in Analyse-Tool laden", type="primary", use_container_width=True):
+        if col_act1.button("In Analyse-Rechner laden", type="primary", use_container_width=True):
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
             for k, v in p_target["input_data"].items():
                 st.session_state[k] = v
-            st.session_state["nav_choice"] = "➕ Analyse & Rechner"
+            st.session_state["nav_choice"] = "Analyse"
             st.rerun()
 
-        if col_act2.button("🗑️ Projekt unwiderruflich löschen", use_container_width=True):
+        if col_act2.button("Projekt löschen", use_container_width=True):
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
             db_delete_project(sb_client, p_target["id"])
             st.rerun()
 
     else:
-        st.info("💡 Noch keine Objekte in der Datenbank gespeichert. Wechseln Sie zum Reiter **'➕ Analyse & Rechner'**, um Ihr erstes Objekt einzugeben!")
+        st.info("Bisher keine Projekte in der Datenbank hinterlegt. Nutzen Sie den Bereich 'Analyse', um ein neues Objekt zu erfassen.")
 
 # =============================================================================
-# MODUL 2: ➕ ANALYSE & RECHNER (Gliederung in Objekt- & Investor-Daten)
+# MODUL 2: ANALYSE & RECHNER
 # =============================================================================
-elif nav_choice == "➕ Analyse & Rechner":
+elif nav_choice == "Analyse":
     
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
-        st.subheader("🤖 KI-Import")
+        st.subheader("Automatisierter Import")
         active_api_key = get_gemini_api_key()
         
-        import_type = st.radio("Quelle wählen:", ["🔗 Web-Link (URL)", "📄 PDF Exposé", "📝 Text kopieren"])
+        import_type = st.radio("Quellformat wählen:", ["Web-Link (URL)", "PDF Exposé", "Text manuell"])
         
         extracted_text_to_analyze = ""
         
-        if import_type == "📄 PDF Exposé":
-            uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
+        if import_type == "PDF Exposé":
+            uploaded_pdf = st.file_uploader("Exposé als PDF hochladen", type=["pdf"])
             if uploaded_pdf:
                 reader = PdfReader(uploaded_pdf)
                 for page in reader.pages:
                     extracted_text_to_analyze += page.extract_text() or ""
 
-        elif import_type == "🔗 Web-Link (URL)":
-            input_url = st.text_input("Anzeigen-Link (Kleinanzeigen etc.):")
+        elif import_type == "Web-Link (URL)":
+            input_url = st.text_input("Inserat-URL (z. B. ImmoScout, Kleinanzeigen):")
             if input_url:
-                with st.spinner("Lade Website-Inhalt..."):
+                with st.spinner("Lade Inserat-Inhalte..."):
                     extracted_text_to_analyze = fetch_text_from_url(input_url)
 
-        elif import_type == "📝 Text kopieren":
-            extracted_text_to_analyze = st.text_area("Anzeigen-Text kopieren:", height=120)
+        elif import_type == "Text manuell":
+            extracted_text_to_analyze = st.text_area("Exposé-Text einfügen:", height=120)
 
         if extracted_text_to_analyze and active_api_key:
-            if st.button("✨ Objektdaten per KI auslesen", use_container_width=True, type="primary"):
-                with st.spinner("Gemini AI liest Objekt-Fakten..."):
+            if st.button("Objektdaten auslesen", use_container_width=True, type="primary"):
+                with st.spinner("Analysiere Objekt-Fakten..."):
                     ai_data = analyze_text_with_gemini(active_api_key, extracted_text_to_analyze)
                     if ai_data:
                         if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
@@ -708,26 +709,25 @@ elif nav_choice == "➕ Analyse & Rechner":
                         if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
                         if ai_data.get("objektname") and str(ai_data["objektname"]) != "Unbekannt": 
                             st.session_state["obj_name"] = str(ai_data["objektname"])
-                        st.success("Objektdaten übernommen!")
+                        st.success("Objektdaten erfolgreich übernommen.")
                         st.rerun()
 
         st.divider()
         
-        # STRUCTURING INPUT FIELDS IN EXPANDABLE ACCORDIONS (PREVENTS OVERWHELMING)
-        st.markdown("### 📋 Daten-Eingabe")
+        st.markdown("### Parametrisierung")
         
-        with st.expander("🏢 1. Objektdaten (Exposé)", expanded=True):
-            st.text_input("Objektname", key="obj_name", placeholder="z. B. ETW Berlin-Mitte")
+        with st.expander("1. Objektdaten (Exposé)", expanded=True):
+            st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
             st.number_input("Kaufpreis (€)", key="kaufpreis", step=5000.0)
             st.number_input("Wohnfläche (m²)", key="qm", step=5.0)
             st.number_input("Baujahr", key="baujahr", step=1)
             st.number_input("Ist-Kaltmiete (€/m²)", key="ist_sqm")
             st.number_input("Hausgeld (€/Monat)", key="hausgeld")
-            st.number_input("Geschätzte Sanierung (€)", key="sanierung", step=2500.0)
+            st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
 
-        with st.expander("🏦 2. Deine Finanzierung & NK", expanded=False):
-            st.markdown("<span class='badge-investor'>Persönliche Konditionen</span>", unsafe_allow_html=True)
+        with st.expander("2. Finanzierung & Nebenkosten", expanded=False):
+            st.markdown("<span class='badge-investor'>Investor-Parameter</span>", unsafe_allow_html=True)
             st.slider("Eigenkapitalquote (%)", 0.0, 0.50, key="ek_quote", step=0.05)
             st.number_input("Hausbank Zins (%)", key="hb_zins")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg")
@@ -739,20 +739,19 @@ elif nav_choice == "➕ Analyse & Rechner":
             st.number_input("KfW Zins (%)", key="kfw_zins")
             st.number_input("KfW Tilgung (%)", key="kfw_tilg")
 
-        with st.expander("📈 3. Ziel-Miete & Betriebskosten", expanded=False):
+        with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
             st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm")
-            st.number_input("Erreicht in Jahr", key="adj_year", min_value=1, max_value=10)
+            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
             st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm")
             st.number_input("Verwaltung (€/Monat)", key="mgt_monat")
-            st.slider("Leerstandsrisiko (%)", 0.0, 0.10, key="vac_rate")
+            st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate")
 
-        with st.expander("⚖️ 4. Steuer & Annahmen", expanded=False):
+        with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc")
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc")
 
-    # PREPARE INPUT PAYLOAD
     input_data = {
         'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
         'bundesland': st.session_state["bundesland"], 'notar_proz': st.session_state["notar_p"] / 100,
@@ -776,39 +775,30 @@ elif nav_choice == "➕ Analyse & Rechner":
         'grund_anteil': st.session_state["grund_anteil"]
     }
 
-    # CHECK MINIMUM REQUIRED DATA (KAUFPREIS & QM MUST BE > 0)
     has_minimum_data = (st.session_state["kaufpreis"] > 0) and (st.session_state["qm"] > 0)
 
     if not has_minimum_data:
-        # PLACEHOLDER SCREEN BEFORE DATA ENTRY
         st.markdown("""
-        <div class="apple-placeholder">
-            <h2 style="font-size: 2rem; font-weight: 700; color: #1d1d1f; margin-bottom: 10px;">🏢 Bereit für Ihre Immobilien-Analyse</h2>
-            <p style="font-size: 1.1rem; color: #86868b; max-width: 600px; margin: 0 auto 25px auto;">
-                Bitte tragen Sie in der linken Seitenleiste mindestens den <b>Kaufpreis</b> und die <b>Wohnfläche</b> ein oder nutzen Sie den <b>KI-Import</b>.
+        <div class="valuon-placeholder">
+            <h2 style="font-size: 1.8rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Objektbewertung initialisieren</h2>
+            <p style="font-size: 1.05rem; color: #555759; max-width: 580px; margin: 0 auto 25px auto;">
+                Bitte erfassen Sie in der linken Seitenleiste mindestens den <b>Kaufpreis</b> und die <b>Wohnfläche</b> oder nutzen Sie den automatisierten Import.
             </p>
-            <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                <span style="background:#ffffff; padding:10px 18px; border-radius:12px; border:1px solid #d2d2d7; font-weight:500;">✨ KI Link-/PDF-Import nutzen</span>
-                <span style="background:#ffffff; padding:10px 18px; border-radius:12px; border:1px solid #d2d2d7; font-weight:500;">📝 Oder Objektdaten manuell eingeben</span>
-            </div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # CALCULATE PROJECTION
         df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data)
 
-        # HEADER TITLE & SAVE BUTTON
-        obj_display_name = st.session_state['obj_name'] if st.session_state['obj_name'] else "Neues Objekt"
+        obj_display_name = st.session_state['obj_name'] if st.session_state['obj_name'] else "Unbenanntes Objekt"
         col_t1, col_t2 = st.columns([3, 1])
         with col_t1:
-            st.markdown(f"# 🏢 {obj_display_name}")
+            st.markdown(f"# {obj_display_name}")
             st.caption(f"Standort: {st.session_state['bundesland']} | Fläche: {st.session_state['qm']:.0f} m² | Kaufpreis: {st.session_state['kaufpreis']:,.0f} €")
         with col_t2:
             current_payload = {k: st.session_state[k] for k in default_state.keys()}
-            if sb_client and st.button("💾 In Cloud Speichern", type="primary", use_container_width=True):
+            if sb_client and st.button("In Cloud speichern", type="primary", use_container_width=True):
                 db_save_project(sb_client, st.session_state["user_email"], obj_display_name, current_payload)
 
-        # STRATEGY & AMPEL SYSTEM
         strat_name = st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")
         strat = STRATEGIES.get(strat_name, STRATEGIES["Konservativ / Ausgewogen (Standard)"])
         
@@ -819,27 +809,27 @@ elif nav_choice == "➕ Analyse & Rechner":
         kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
         val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
 
-        status_cf, label_cf = get_ampel_status(val_cf, strat["target_cf"], strat["tol_cf"])
-        status_rendite, label_rendite = get_ampel_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])
-        status_roe, label_roe = get_ampel_status(val_roe, strat["target_roe"], strat["tol_roe"])
-        status_dscr, label_dscr = get_ampel_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
+        status_cf, label_cf = get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])
+        status_rendite, label_rendite = get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])
+        status_roe, label_roe = get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])
+        status_dscr, label_dscr = get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f'<div class="ampel-card ampel-{status_cf}"><div class="ampel-title">Cashflow n. St.</div><div class="ampel-value">{val_cf:,.2f} €/M</div><div class="ampel-status">{label_cf}</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="ampel-card ampel-{status_rendite}"><div class="ampel-title">Bruttomietrendite</div><div class="ampel-value">{val_rendite:.2f} %</div><div class="ampel-status">{label_rendite}</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="ampel-card ampel-{status_roe}"><div class="ampel-title">EK-Rendite (ROE)</div><div class="ampel-value">{val_roe:.2f} %</div><div class="ampel-status">{label_roe}</div></div>', unsafe_allow_html=True)
-        c4.markdown(f'<div class="ampel-card ampel-{status_dscr}"><div class="ampel-title">DSCR Schuldendienst</div><div class="ampel-value">{val_dscr:.2f}</div><div class="ampel-status">{label_dscr}</div></div>', unsafe_allow_html=True)
+        c1.markdown(f'<div class="metric-card metric-{status_cf}"><div class="metric-title">Cashflow (netto)</div><div class="metric-value">{val_cf:,.2f} €/M</div><div class="metric-status">{label_cf}</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="metric-card metric-{status_rendite}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{val_rendite:.2f} %</div><div class="metric-status">{label_rendite}</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="metric-card metric-{status_roe}"><div class="metric-title">Eigenkapitalrendite</div><div class="metric-value">{val_roe:.2f} %</div><div class="metric-status">{label_roe}</div></div>', unsafe_allow_html=True)
+        c4.markdown(f'<div class="metric-card metric-{status_dscr}"><div class="metric-title">DSCR Schuldendienst</div><div class="metric-value">{val_dscr:.2f}</div><div class="metric-status">{label_dscr}</div></div>', unsafe_allow_html=True)
 
-        tab_dash, tab_plan, tab_tax, tab_stress = st.tabs(["📊 Executive Dashboard", "📅 10-Jahres Finanzplan", "⚖️ Steuer & VV-GmbH", "💣 Stresstest"])
+        tab_dash, tab_plan, tab_tax, tab_stress = st.tabs(["Executive Dashboard", "10-Jahres-Modell", "Steuer-Struktur", "Stresstest"])
 
         with tab_dash:
             col_chart1, col_chart2 = st.columns([2, 1])
             with col_chart1:
-                st.markdown("### Vermögensaufbau vs. Restschuld")
+                st.markdown("### Vermögensentwicklung vs. Restschuld")
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#10b981", width=3)))
-                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#ef4444", width=3)))
-                fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital / NAV (€)", marker_color="#0066cc", opacity=0.3))
+                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#13381A", width=3)))
+                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#A37841", width=3)))
+                fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital (NAV)", marker_color="#2B2D2F", opacity=0.2))
                 fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=10, b=10))
                 st.plotly_chart(fig, use_container_width=True)
                 
@@ -848,14 +838,14 @@ elif nav_choice == "➕ Analyse & Rechner":
                 fig_pie = px.pie(
                     names=['Eigenkapital', 'Hausbank', 'KfW'],
                     values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
-                    color_discrete_sequence=['#0066cc', '#1d1d1f', '#86868b'],
+                    color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'],
                     hole=0.5
                 )
                 fig_pie.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
                 st.plotly_chart(fig_pie, use_container_width=True)
 
         with tab_plan:
-            st.markdown("### 10-Jahres Liquiditätsverlauf")
+            st.markdown("### Liquiditätsverlauf (10 Jahre)")
             st.dataframe(df_proj.style.format({
                 "Bruttomietrendite": "{:.2%}", "Brutto-Kaltmiete": "{:,.0f} €", "NOI": "{:,.0f} €",
                 "Zinsen": "{:,.0f} €", "Tilgung": "{:,.0f} €", "CF v. St.": "{:,.0f} €",
@@ -864,32 +854,32 @@ elif nav_choice == "➕ Analyse & Rechner":
             }), use_container_width=True)
 
         with tab_tax:
-            st.markdown("### Privatbesitz vs. VV-GmbH")
+            st.markdown("### Rechtsform-Vergleich (Privat vs. VV-GmbH)")
             tot_taxable = df_proj['NOI'].sum() - df_proj['Zinsen'].sum() - df_proj['AfA'].sum()
             tax_privat = tot_taxable * st.session_state["tax_rate"]
             tax_gmbh = tot_taxable * 0.15825
             c_t1, c_t2, c_t3 = st.columns(3)
-            c_t1.metric("Steuer Haltephase (Privat)", f"{tax_privat:,.0f} €")
-            c_t2.metric("Steuer Haltephase (VV-GmbH)", f"{tax_gmbh:,.0f} €")
-            c_t3.metric("Ersparnis Haltephase GmbH", f"{tax_privat - tax_gmbh:,.0f} €")
+            c_t1.metric("Steuerlast Privat", f"{tax_privat:,.0f} €")
+            c_t2.metric("Steuerlast VV-GmbH", f"{tax_gmbh:,.0f} €")
+            c_t3.metric("Steuerdifferenz", f"{tax_privat - tax_gmbh:,.0f} €")
 
         with tab_stress:
-            st.markdown("### Refinanzierungs-Shock (Jahr 11)")
+            st.markdown("### Zinsänderungsrisiko (Anschlussfinanzierung Jahr 11)")
             restschuld_10 = df_proj.loc[9, 'Restschuld']
             rates = [0.035, 0.045, 0.055, 0.065, 0.075]
             refin_data = []
             for r in rates:
                 new_rate = (restschuld_10 * (r + (st.session_state["hb_tilg"] / 100))) / 12
                 new_dscr = df_proj.loc[9, 'NOI'] / (new_rate * 12) if new_rate > 0 else 0
-                refin_data.append({"Anschluss-Zins": f"{r*100:.1f} %", "Monatliche Rate": f"{new_rate:,.2f} €", "Neuer DSCR": f"{new_dscr:.2f}"})
+                refin_data.append({"Sollzins": f"{r*100:.1f} %", "Monatliche Rate": f"{new_rate:,.2f} €", "DSCR": f"{new_dscr:.2f}"})
             st.table(pd.DataFrame(refin_data))
 
 # =============================================================================
-# MODUL 3: ⚖️ DEAL-VERGLEICH
+# MODUL 3: DEAL-VERGLEICH
 # =============================================================================
-elif nav_choice == "⚖️ Deal-Vergleich":
-    st.markdown("## ⚖️ Multi-Deal Vergleich")
-    st.markdown("<p style='color:#86868b;'>Vergleichen Sie bis zu 3 Objekte direkt nebeneinander.</p>", unsafe_allow_html=True)
+elif nav_choice == "Vergleich":
+    st.markdown("## Multi-Deal Vergleich")
+    st.markdown("<p style='color:#555759;'>Parallele Gegenüberstellung mehrerer Investitionsvorhaben.</p>", unsafe_allow_html=True)
     
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
@@ -929,31 +919,31 @@ elif nav_choice == "⚖️ Deal-Vergleich":
                 rendite = df_c.loc[0, 'Bruttomietrendite'] * 100
                 
                 with cols[idx]:
-                    st.markdown(f"<div class='apple-card'><h3>🏢 {deal_name}</h3>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='valuon-card'><h3>{deal_name}</h3>", unsafe_allow_html=True)
                     st.metric("Kaufpreis", f"{d.get('kaufpreis', 0):,.0f} €")
-                    st.metric("Cashflow n. St.", f"{cf_m:,.2f} €/M")
+                    st.metric("Cashflow (netto)", f"{cf_m:,.2f} €/M")
                     st.metric("Bruttomietrendite", f"{rendite:.2f} %")
-                    st.metric("10-Jahres IRR", f"{irr*100:.2f} %")
+                    st.metric("10J-IRR", f"{irr*100:.2f} %")
                     st.metric("Eigenkapital", f"{ek_abs:,.0f} €")
                     st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.warning("Bitte wählen Sie mindestens 2 Objekte aus.")
+            st.warning("Bitte wählen Sie mindestens zwei Projekte für den Vergleich aus.")
     else:
-        st.info("💡 Sie benötigen mindestens 2 gespeicherte Objekte in der Cloud-Datenbank, um den Deal-Vergleich zu nutzen.")
+        st.info("Es sind mindestens zwei gespeicherte Projekte erforderlich, um den Deal-Vergleich zu nutzen.")
 
 # =============================================================================
-# MODUL 4: 🧮 MAX. KAUFPREIS RECHNER
+# MODUL 4: MAXIMALER KAUFPREIS
 # =============================================================================
-elif nav_choice == "🧮 Max. Kaufpreis":
-    st.markdown("## 🧮 Maximaler Kaufpreis Rechner")
-    st.markdown("<p style='color:#86868b;'>Ermitteln Sie Ihre Gebots-Obergrenze für Preisverhandlungen.</p>", unsafe_allow_html=True)
+elif nav_choice == "Kaufpreis":
+    st.markdown("## Maximaler Kaufpreis-Rechner")
+    st.markdown("<p style='color:#555759;'>Ermittlung der strategischen Gebots-Obergrenze.</p>", unsafe_allow_html=True)
 
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
-        desired_cf = st.number_input("Wunsch-Cashflow n. St. (€/Monat)", value=100.0, step=25.0)
+        desired_cf = st.number_input("Ziel-Cashflow (netto, €/Monat)", value=100.0, step=25.0)
         current_kp = st.session_state["kaufpreis"]
-        st.info(f"Aktuell angesetzter Kaufpreis: **{current_kp:,.0f} €**")
+        st.info(f"Aktueller Objektpreis: **{current_kp:,.0f} €**")
 
     with col_g2:
         best_price = current_kp
@@ -968,48 +958,48 @@ elif nav_choice == "🧮 Max. Kaufpreis":
                 else:
                     break
                     
-            st.metric("Maximaler Kaufpreis (Gebots-Obergrenze)", f"{best_price:,.0f} €", delta=f"{best_price - current_kp:,.0f} € zum Verkäuferpreis")
+            st.metric("Gebots-Obergrenze", f"{best_price:,.0f} €", delta=f"{best_price - current_kp:,.0f} € zum Angebotspreis")
         else:
-            st.warning("Bitte geben Sie zuerst Objektdaten im Analyse-Rechner ein.")
+            st.warning("Bitte definieren Sie zuerst die Objektdaten im Analyse-Rechner.")
 
 # =============================================================================
-# MODUL 5: ⚙️ EINSTELLUNGEN
+# MODUL 5: EINSTELLUNGEN
 # =============================================================================
-elif nav_choice == "⚙️ Einstellungen":
-    st.markdown("## ⚙️ Einstellungen & Zugänge")
-    st.markdown("<p style='color:#86868b;'>Verwalten Sie Schlüssel und Investment-Strategien.</p>", unsafe_allow_html=True)
+elif nav_choice == "Einstellungen":
+    st.markdown("## System & Konfiguration")
+    st.markdown("<p style='color:#555759;'>Verwaltung von API-Schnittstellen und Investment-Strategien.</p>", unsafe_allow_html=True)
 
-    tab_s1, tab_s2 = st.tabs(["🔑 API-Keys & DB", "🎯 Strategien"])
+    tab_s1, tab_s2 = st.tabs(["Schnittstellen", "Strategie-Parameter"])
 
     with tab_s1:
-        st.markdown("### Google Gemini API Key")
+        st.markdown("### Google Gemini API-Schlüssel")
         gem_secrets = st.secrets.get("GEMINI_API_KEY", "")
         if gem_secrets:
             masked_key = gem_secrets[:6] + "..." + gem_secrets[-4:] if len(gem_secrets) > 10 else "Aktiv"
-            st.success(f"🟢 API-Key aktiv geladen aus Streamlit Secrets! (`{masked_key}`)")
+            st.success(f"API-Key aktiv geladen über Secrets (`{masked_key}`)")
         else:
-            st.warning("⚠️ Kein Key in den Streamlit Secrets hinterlegt.")
+            st.warning("Kein API-Schlüssel in den Secrets hinterlegt.")
         
-        gemini_key = st.text_input("Manuell in Session überschreiben", value=st.session_state.get("gemini_api_key", ""), type="password", help="Wird nur genutzt, falls kein Key in den Secrets steht.")
+        gemini_key = st.text_input("Manueller Override", value=st.session_state.get("gemini_api_key", ""), type="password")
         if gemini_key:
             st.session_state["gemini_api_key"] = gemini_key
-            st.success("Manueller Gemini Key gespeichert!")
+            st.success("API-Schlüssel zwischengespeichert.")
 
         st.divider()
-        st.markdown("### Supabase Datenbank")
+        st.markdown("### Supabase Datenanbindung")
         sb_u_secrets = st.secrets.get("SUPABASE_URL", "")
         if sb_u_secrets:
-            st.success("🟢 Supabase-Datenbank ist automatisch aus den Streamlit Secrets verbunden!")
+            st.success("Supabase-Datenbank erfolgreich über Secrets verbunden.")
             
-        sb_u = st.text_input("Supabase URL (Manuell)", value=st.session_state.get("supabase_url", ""), type="password")
-        sb_k = st.text_input("Supabase Anon Key (Manuell)", value=st.session_state.get("supabase_key", ""), type="password")
+        sb_u = st.text_input("Supabase URL", value=st.session_state.get("supabase_url", ""), type="password")
+        sb_k = st.text_input("Supabase Anon Key", value=st.session_state.get("supabase_key", ""), type="password")
         if sb_u and sb_k:
             st.session_state["supabase_url"] = sb_u
             st.session_state["supabase_key"] = sb_k
-            st.success("Manuelle Supabase-Verbindung gespeichert!")
+            st.success("Verbindungsparameter aktualisiert.")
 
     with tab_s2:
-        st.markdown("### Investment-Strategie")
+        st.markdown("### Investment-Profil")
         chosen_strat = st.selectbox("Aktive Strategie", list(STRATEGIES.keys()), index=0)
         st.session_state["selected_strategy_name"] = chosen_strat
         
