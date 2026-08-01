@@ -19,22 +19,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Apple Design System CSS
 st.markdown("""
 <style>
-    /* Global Typography & Colors */
     html, body, [class*="css"] {
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
         color: #1d1d1f;
     }
-    
     .main .block-container {
         padding-top: 1.5rem;
         padding-bottom: 3rem;
         max-width: 1200px;
     }
-    
-    /* Apple Clean Cards */
     .apple-card {
         background-color: #f5f5f7;
         border-radius: 18px;
@@ -43,8 +38,6 @@ st.markdown("""
         border: 1px solid rgba(0, 0, 0, 0.04);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
     }
-    
-    /* Apple Pill Buttons styling */
     .stButton > button {
         border-radius: 980px !important;
         font-weight: 500 !important;
@@ -54,26 +47,20 @@ st.markdown("""
         background-color: #ffffff !important;
         color: #1d1d1f !important;
     }
-    
     .stButton > button:hover {
         border-color: #0066cc !important;
         color: #0066cc !important;
         background-color: #f5f5f7 !important;
     }
-    
-    /* Active Primary Pill Button */
     .stButton > button[kind="primary"] {
         background-color: #1d1d1f !important;
         color: #ffffff !important;
         border-color: #1d1d1f !important;
     }
-    
     .stButton > button[kind="primary"]:hover {
         background-color: #333336 !important;
         color: #ffffff !important;
     }
-
-    /* KPI Ampel Cards (Apple Style) */
     .ampel-card {
         border-radius: 16px;
         padding: 18px;
@@ -86,7 +73,6 @@ st.markdown("""
     .ampel-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 4px; }
     .ampel-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
     .ampel-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
-    
     header[data-testid="stHeader"] { background: transparent; }
 </style>
 """, unsafe_allow_html=True)
@@ -127,11 +113,15 @@ STRATEGIES = {
 # SECRETS & HELPERS
 # -----------------------------------------------------------------------------
 def get_gemini_api_key() -> str:
-    return st.session_state.get("gemini_api_key", "") or st.secrets.get("GEMINI_API_KEY", "")
+    """Priorisiert Streamlit Secrets, um alte Browser-Session-Keys zu übergehen."""
+    secret_key = st.secrets.get("GEMINI_API_KEY", "")
+    if secret_key:
+        return secret_key
+    return st.session_state.get("gemini_api_key", "")
 
 def get_supabase_client() -> Client:
-    sb_url = st.session_state.get("supabase_url", "") or st.secrets.get("SUPABASE_URL", "")
-    sb_key = st.session_state.get("supabase_key", "") or st.secrets.get("SUPABASE_KEY", "")
+    sb_url = st.secrets.get("SUPABASE_URL", "") or st.session_state.get("supabase_url", "")
+    sb_key = st.secrets.get("SUPABASE_KEY", "") or st.session_state.get("supabase_key", "")
     if sb_url and sb_key:
         try:
             return create_client(sb_url, sb_key)
@@ -237,7 +227,7 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
                 "Das kostenlose Anfrage-Limit für diesen Gemini-Schlüssel wurde überschritten.\n\n"
                 "**Lösungsmöglichkeiten:**\n"
                 "1. Bitte **1 bis 2 Minuten warten** und erneut versuchen.\n"
-                "2. Oder im Reiter **⚙️ Einstellungen** einen neuen Gemini API Key (von aistudio.google.dev) eintragen."
+                "2. Ein neues Projekt in AI Studio anlegen oder einen Key mit einem **zweiten Gmail-Konto** erstellen."
             )
         elif "API_KEY" in err_msg.upper() or "INVALID" in err_msg.upper():
             st.error("🔑 **Ungültiger Gemini API-Key:** Bitte überprüfen Sie Ihren Schlüssel unter *⚙️ Einstellungen*.")
@@ -330,7 +320,6 @@ def calc_10y_projection(data):
         nav = obj_val - restschuld_tot
         ltv = restschuld_tot / obj_val if obj_val > 0 else 0.0
         
-        # Sichere Berechnung der Bruttomietrendite (Vermeidung von ZeroDivisionError)
         bruttomietrendite = gross_rent / kp if kp > 0 else 0.0
         
         rows.append({
@@ -861,9 +850,12 @@ elif nav_choice == "⚙️ Einstellungen":
         st.markdown("### Google Gemini API Key")
         gem_secrets = st.secrets.get("GEMINI_API_KEY", "")
         if gem_secrets:
-            st.success("🟢 API-Key wurde automatisch aus den Streamlit Secrets geladen!")
+            masked_key = gem_secrets[:6] + "..." + gem_secrets[-4:] if len(gem_secrets) > 10 else "Aktiv"
+            st.success(f"🟢 API-Key aktiv geladen aus Streamlit Secrets! (`{masked_key}`)")
+        else:
+            st.warning("⚠️ Kein Key in den Streamlit Secrets hinterlegt.")
         
-        gemini_key = st.text_input("Manuell überschreiben", value=st.session_state.get("gemini_api_key", ""), type="password", help="Falls leer, wird automatisch der Key aus den Secrets genutzt.")
+        gemini_key = st.text_input("Manuell in Session überschreiben", value=st.session_state.get("gemini_api_key", ""), type="password", help="Wird nur genutzt, falls kein Key in den Secrets steht.")
         if gemini_key:
             st.session_state["gemini_api_key"] = gemini_key
             st.success("Manueller Gemini Key gespeichert!")
