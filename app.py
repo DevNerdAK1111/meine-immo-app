@@ -7,6 +7,8 @@ import plotly.express as px
 import google.generativeai as genai
 from pypdf import PdfReader
 import json
+import requests
+from bs4 import BeautifulSoup
 from supabase import create_client, Client
 
 # -----------------------------------------------------------------------------
@@ -162,30 +164,45 @@ def db_delete_project(supabase: Client, project_id: int):
         st.error(f"Fehler beim Löschen: {e}")
 
 # -----------------------------------------------------------------------------
-# CALCULATION & AI FUNCTIONS (DYNAMISCHE MODELL-ERMITTLUNG)
+# SCRAPING & AI FUNCTIONS
 # -----------------------------------------------------------------------------
-def get_ampel_status(val, target_green, target_yellow):
-    if val >= target_green:
-        return "green", "🟢 Ziel erfüllt"
-    elif val >= target_yellow:
-        return "yellow", "🟡 Toleranzbereich"
-    else:
-        return "red", "🔴 Kriterium verfehlt"
+def fetch_text_from_url(url: str) -> str:
+    """Extrahiert den Text einer beliebigen Website unter Verwendung eines Browser-User-Agents."""
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+        response = requests.get(url, headers=headers, timeout=12)
+        
+        if response.status_code == 403 or "captcha" in response.text.lower():
+            st.warning("🛡️ Die Website schützt sich mit einem Bot-Schutz (z. B. ImmoScout24). Bitte kopieren Sie den Text der Seite und nutzen Sie die Option '📝 Text kopieren'.")
+            return ""
+            
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Unnötige Script-, Style- und Header-Elemente entfernen
+        for element in soup(["script", "style", "header", "footer", "nav", "noscript"]):
+            element.extract()
+            
+        text = soup.get_text(separator=' ')
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        return '\n'.join(chunk for chunk in chunks if chunk)
+        
+    except Exception as e:
+        st.error(f"Fehler beim Abrufen der URL: {e}")
+        return ""
 
-def analyze_pdf_with_gemini(api_key, pdf_file):
+def analyze_text_with_gemini(api_key, raw_text):
+    """Zentrales KI-Parsing für Text aus PDF, URL oder Texteingabe."""
     try:
         genai.configure(api_key=api_key)
-        reader = PdfReader(pdf_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() or ""
-            
-        if not text.strip():
-            st.warning("⚠️ Das PDF enthält keinen lesbaren Text (evtl. ein eingescanntes Bild-PDF).")
-            return None
         
         prompt = f"""
-        Du bist ein Immobilien-Experte. Analysiere den folgenden Exposé-Text und extrahiere die Daten als valides JSON.
+        Du bist ein Immobilien-Experte. Analysiere den folgenden Immobilien-Anzeigentext und extrahiere die Daten als valides JSON.
         Verwende 0 oder "Unbekannt", falls ein Wert im Text nicht vorhanden ist.
 
         Geforderte Felder:
@@ -199,11 +216,10 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
             "objektname": string
         }}
 
-        Exposé-Text:
-        {text[:6000]}
+        Anzeigen-Text:
+        {raw_text[:7000]}
         """
         
-        # 1. Dynamisch alle Modelle ermitteln, die generateContent unterstützen
         available_models = []
         try:
             for m in genai.list_models():
@@ -212,28 +228,22 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         except Exception:
             pass
 
-        # 2. Reihung priorisieren: Schnelle Flash-Modelle zuerst
         preferred = [m for m in available_models if 'flash' in m.lower()] + \
                     [m for m in available_models if 'pro' in m.lower()] + \
                     available_models
 
-        # Fallback-Liste, falls list_models blockiert war
         if not preferred:
             preferred = [
                 'models/gemini-1.5-flash',
                 'models/gemini-2.0-flash',
                 'models/gemini-1.5-pro',
-                'gemini-1.5-flash',
-                'gemini-2.0-flash'
+                'gemini-1.5-flash'
             ]
 
-        # Duplikate filtern
         candidate_models = list(dict.fromkeys(preferred))
-        
         response = None
         last_exception = None
 
-        # 3. Modelle nacheinander testen
         for model_name in candidate_models:
             try:
                 model = genai.GenerativeModel(model_name)
@@ -261,13 +271,9 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
     except Exception as e:
         err_msg = str(e)
         if "429" in err_msg or "quota" in err_msg.lower():
-            st.error(
-                "⏳ **API-Limit von Google kurzzeitig erreicht!**\n\n"
-                "Das kostenlose Anfrage-Limit für diesen Gemini-Schlüssel wurde überschritten.\n\n"
-                "**Lösung:** Bitte 1 Minute warten oder ein kostenloses Abrechnungskonto in Google Cloud verknüpfen."
-            )
+            st.error("⏳ **API-Limit von Google kurzzeitig erreicht!** Bitte 1 Minute warten.")
         elif "API_KEY" in err_msg.upper() or "INVALID" in err_msg.upper():
-            st.error("🔑 **Ungültiger Gemini API-Key:** Bitte überprüfen Sie Ihren Schlüssel unter *⚙️ Einstellungen*.")
+            st.error("🔑 **Ungültiger Gemini API-Key:** Bitte unter *⚙️ Einstellungen* prüfen.")
         else:
             st.error(f"⚠️ **Fehler bei der KI-Analyse:** {err_msg}")
         return None
@@ -386,6 +392,14 @@ def calc_10y_projection(data):
         
     return df, tot_inv, ek_abs, fk_tot, irr, afa_base
 
+def get_ampel_status(val, target_green, target_yellow):
+    if val >= target_green:
+        return "green", "🟢 Ziel erfüllt"
+    elif val >= target_yellow:
+        return "yellow", "🟡 Toleranzbereich"
+    else:
+        return "red", "🔴 Kriterium verfehlt"
+
 # -----------------------------------------------------------------------------
 # SESSION STATE INITIALIZATION
 # -----------------------------------------------------------------------------
@@ -436,8 +450,8 @@ if not st.session_state["authenticated"]:
     with col_landing1:
         st.markdown("""
         <div class="apple-card">
-            <h3 style="margin-top:0;">🤖 KI-Exposé-Import</h3>
-            <p style="color:#86868b;">Exposé als PDF hochladen – Gemini AI zieht Mieten, Kaufpreis & Baujahr vollautomatisch heraus.</p>
+            <h3 style="margin-top:0;">🤖 KI-Exposé & Link-Import</h3>
+            <p style="color:#86868b;">Web-Link, PDF oder Text einfügen – Gemini AI zieht Mieten, Kaufpreis & Baujahr vollautomatisch heraus.</p>
         </div>
         <div class="apple-card">
             <h3 style="margin-top:0;">🚦 Smartes Ampelsystem</h3>
@@ -608,25 +622,45 @@ if nav_choice == "📁 Meine Projekte":
 elif nav_choice == "➕ Analyse & Rechner":
     
     with st.sidebar:
-        st.subheader("🤖 KI-Exposé-Import")
+        st.subheader("🤖 KI-Import")
         active_api_key = get_gemini_api_key()
         
-        uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
+        import_type = st.radio("Import-Quelle wählen:", ["🔗 Web-Link (URL)", "📄 PDF Exposé", "📝 Text kopieren"])
         
-        if uploaded_pdf and active_api_key:
-            if st.button("✨ Exposé per KI analysieren", use_container_width=True):
-                with st.spinner("Lese PDF..."):
-                    ai_data = analyze_pdf_with_gemini(active_api_key, uploaded_pdf)
+        extracted_text_to_analyze = ""
+        
+        if import_type == "📄 PDF Exposé":
+            uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
+            if uploaded_pdf:
+                reader = PdfReader(uploaded_pdf)
+                for page in reader.pages:
+                    extracted_text_to_analyze += page.extract_text() or ""
+
+        elif import_type == "🔗 Web-Link (URL)":
+            input_url = st.text_input("Immobilien-Link (z. B. Kleinanzeigen, ImmoScout):")
+            if input_url:
+                with st.spinner("Lade Website-Inhalt..."):
+                    extracted_text_to_analyze = fetch_text_from_url(input_url)
+
+        elif import_type == "📝 Text kopieren":
+            extracted_text_to_analyze = st.text_area("Exposé-Text hier hineinkopieren:", height=150)
+
+        # KI Start-Button
+        if extracted_text_to_analyze and active_api_key:
+            if st.button("✨ Objekt per KI analysieren", use_container_width=True, type="primary"):
+                with st.spinner("Gemini AI analysiert Objektdaten..."):
+                    ai_data = analyze_text_with_gemini(active_api_key, extracted_text_to_analyze)
                     if ai_data:
                         if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
                         if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
                         if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
                         if ai_data.get("ist_miete_sqm"): st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
                         if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
-                        if ai_data.get("objektname"): st.session_state["obj_name"] = str(ai_data["objektname"])
-                        st.success("KI-Daten übernommen!")
+                        if ai_data.get("objektname") and str(ai_data["objektname"]) != "Unbekannt": 
+                            st.session_state["obj_name"] = str(ai_data["objektname"])
+                        st.success("KI-Daten erfolgreich übernommen!")
                         st.rerun()
-        elif uploaded_pdf and not active_api_key:
+        elif extracted_text_to_analyze and not active_api_key:
             st.warning("⚠️ Bitte Gemini API Key in den Einstellungen hinterlegen.")
 
         st.divider()
