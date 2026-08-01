@@ -6,10 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import google.generativeai as genai
 from pypdf import PdfReader
-import requests
-from bs4 import BeautifulSoup
 import json
-import re
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIG & STYLING
@@ -21,11 +18,50 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS für professionelle Ampel-Karten
 st.markdown("""
 <style>
     .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-    .stMetric { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-    .css-1r6slb0 { background-color: #0f172a; }
+    
+    /* Ampel-Card Styling */
+    .ampel-card {
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border-left: 6px solid;
+    }
+    .ampel-green {
+        background-color: #f0fdf4;
+        border-left-color: #22c55e;
+        color: #14532d;
+    }
+    .ampel-yellow {
+        background-color: #fefce8;
+        border-left-color: #eab308;
+        color: #713f12;
+    }
+    .ampel-red {
+        background-color: #fef2f2;
+        border-left-color: #ef4444;
+        color: #7f1d1d;
+    }
+    .ampel-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        opacity: 0.8;
+    }
+    .ampel-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .ampel-status {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,6 +75,37 @@ GRUNDERWERBSTEUER_MAP = {
     "Nordrhein-Westfalen": 0.065, "Rheinland-Pfalz": 0.050, "Saarland": 0.065,
     "Sachsen": 0.055, "Sachsen-Anhalt": 0.050, "Schleswig-Holstein": 0.065, "Thüringen": 0.065
 }
+
+# Strategie-Presets mit logischen Standards
+STRATEGIES = {
+    "Konservativ / Ausgewogen (Standard)": {
+        "target_cf": 50.0, "tol_cf": 0.0,
+        "target_rendite": 4.5, "tol_rendite": 3.8,
+        "target_roe": 8.0, "tol_roe": 4.0,
+        "target_dscr": 1.20, "tol_dscr": 1.05
+    },
+    "Cashflow-Fokus (B/C-Lage)": {
+        "target_cf": 150.0, "tol_cf": 50.0,
+        "target_rendite": 6.0, "tol_rendite": 5.0,
+        "target_roe": 12.0, "tol_roe": 7.0,
+        "target_dscr": 1.25, "tol_dscr": 1.10
+    },
+    "Wertwachstum / A-Lage": {
+        "target_cf": 0.0, "tol_cf": -50.0,
+        "target_rendite": 3.5, "tol_rendite": 2.8,
+        "target_roe": 6.0, "tol_roe": 3.0,
+        "target_dscr": 1.15, "tol_dscr": 1.05
+    }
+}
+
+def get_ampel_status(val, target_green, target_yellow):
+    """Ermittelt den Ampelstatus (green, yellow, red)"""
+    if val >= target_green:
+        return "green", "🟢 Ziel erfüllt"
+    elif val >= target_yellow:
+        return "yellow", "🟡 Toleranzbereich"
+    else:
+        return "red", "🔴 Kriterium verfehlt"
 
 def analyze_pdf_with_gemini(api_key, pdf_file):
     try:
@@ -67,7 +134,6 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        # Aktuelles stabiles Gemini Modell
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
                 
@@ -203,7 +269,7 @@ def calc_10y_projection(data):
     return df, tot_inv, ek_abs, fk_tot, irr, afa_base
 
 # -----------------------------------------------------------------------------
-# SIDEBAR / INPUTS & SESSION-STATE API-KEY
+# SIDEBAR / INPUTS
 # -----------------------------------------------------------------------------
 if "gemini_api_key" not in st.session_state:
     st.session_state["gemini_api_key"] = ""
@@ -212,8 +278,39 @@ with st.sidebar:
     st.title("🏢 ImmoAnalyse Pro")
     st.caption("Institutional Investment & AI Suite")
     
+    # NEU: STRATEGIE & ZIEL-KPIS (EXPANDER)
+    with st.expander("🎯 **Strategie & Ziel-KPIs (Ampelsystem)**", expanded=True):
+        selected_strategy = st.selectbox(
+            "Investment-Strategie",
+            list(STRATEGIES.keys()) + ["Benutzerdefiniert"]
+        )
+        
+        if selected_strategy != "Benutzerdefiniert":
+            strat = STRATEGIES[selected_strategy]
+            target_cf = strat["target_cf"]
+            tol_cf = strat["tol_cf"]
+            target_rendite = strat["target_rendite"]
+            tol_rendite = strat["tol_rendite"]
+            target_roe = strat["target_roe"]
+            tol_roe = strat["tol_roe"]
+            target_dscr = strat["target_dscr"]
+            tol_dscr = strat["tol_dscr"]
+            st.info("💡 Preset aktiv. Wählen Sie 'Benutzerdefiniert', um Schwellenwerte anzupassen.")
+        else:
+            st.markdown("**Ziel-Schwellenwerte festlegen:**")
+            target_cf = st.number_input("Ziel Cashflow n. St. (€/Monat)", value=50.0, step=25.0)
+            tol_cf = st.number_input("Toleranz Cashflow (€/Monat)", value=0.0, step=25.0)
+            
+            target_rendite = st.number_input("Ziel Bruttomietrendite (%)", value=4.5, step=0.5)
+            tol_rendite = st.number_input("Toleranz Bruttomietrendite (%)", value=3.8, step=0.5)
+            
+            target_roe = st.number_input("Ziel EK-Rendite / ROE (%)", value=8.0, step=1.0)
+            tol_roe = st.number_input("Toleranz ROE (%)", value=4.0, step=1.0)
+            
+            target_dscr = st.number_input("Ziel DSCR (Schuldendienst)", value=1.20, step=0.05)
+            tol_dscr = st.number_input("Toleranz DSCR", value=1.05, step=0.05)
+
     st.subheader("🤖 KI-Import & Data Extractor")
-    
     api_key_input = st.text_input(
         "Gemini API Key",
         value=st.session_state["gemini_api_key"],
@@ -306,17 +403,68 @@ df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data
 # MAIN CONTENT DASHBOARD
 # -----------------------------------------------------------------------------
 st.title(f"🏢 {obj_name}")
-st.caption(f"Standort: {bundesland} | Wohnfläche: {qm:.0f} m² | Baujahr: {baujahr}")
+st.caption(f"Standort: {bundesland} | Wohnfläche: {qm:.0f} m² | Baujahr: {baujahr} | Aktive Strategie: **{selected_strategy}**")
 
-col1, col2, col3, col4, col5 = st.columns(5)
-cf_m1 = df_proj.loc[0, 'CF n. St.'] / 12
-dscr_1 = df_proj.loc[0, 'NOI'] / ((fk_tot * hb_share * (hb_zins + hb_tilg)) + (max(0, kfw_amt - kfw_grant) * (kfw_zins + kfw_tilg)))
+# BERECHNUNG DER KERN-KPIS & AMPEL-STATUS
+val_cf = df_proj.loc[0, 'CF n. St.'] / 12
+val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
+val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100
+val_dscr = df_proj.loc[0, 'NOI'] / ((fk_tot * hb_share * (hb_zins + hb_tilg)) + (max(0, kfw_amt - kfw_grant) * (kfw_zins + kfw_tilg)))
 
-col1.metric("Monatlicher Cashflow (n. St.)", f"{cf_m1:,.2f} €", delta="Positiv" if cf_m1 >= 0 else "Negativ", delta_color="normal")
-col2.metric("Bruttomietrendite", f"{df_proj.loc[0, 'Bruttomietrendite']*100:.2f} %")
-col3.metric("Eigenkapitalrendite (ROE)", f"{(df_proj.loc[0, 'CF n. St.']/ek_abs)*100:.2f} %")
-col4.metric("DSCR Schuldendienst", f"{dscr_1:.2f}", delta="Sicher (>1.2)" if dscr_1 >= 1.2 else "Kritisch (<1.1)", delta_color="normal")
-col5.metric("10-Jahres IRR", f"{irr*100:.2f} %")
+status_cf, label_cf = get_ampel_status(val_cf, target_cf, tol_cf)
+status_rendite, label_rendite = get_ampel_status(val_rendite, target_rendite, tol_rendite)
+status_roe, label_roe = get_ampel_status(val_roe, target_roe, tol_roe)
+status_dscr, label_dscr = get_ampel_status(val_dscr, target_dscr, tol_dscr)
+
+statuses = [status_cf, status_rendite, status_roe, status_dscr]
+
+# GESAMT-DEAL BANNER
+if statuses.count("green") == 4:
+    st.success("🟢 **TOP DEAL:** Dieses Objekt erfüllt exakt alle Kriterien deiner gewählten Strategie!")
+elif "red" in statuses:
+    red_count = statuses.count("red")
+    st.error(f"🔴 **DEAL-BREAKER / PRÜFBEDARF:** Das Objekt verfehlt {red_count} wichtige(s) Ziel-Kriterium/Kriterien deiner Strategie.")
+else:
+    st.warning("🟡 **AKZEPTABEL / TOLERANZ:** Das Objekt liegt in allen Punkten im Toleranzbereich, erreicht aber nicht überall den Optimalwert.")
+
+# DYNAMISCHE AMPEL-KARTEN
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.markdown(f"""
+    <div class="ampel-card ampel-{status_cf}">
+        <div class="ampel-title">Cashflow n. St.</div>
+        <div class="ampel-value">{val_cf:,.2f} €/M</div>
+        <div class="ampel-status">{label_cf} (Ziel: ≥ {target_cf:,.0f} €)</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="ampel-card ampel-{status_rendite}">
+        <div class="ampel-title">Bruttomietrendite</div>
+        <div class="ampel-value">{val_rendite:.2f} %</div>
+        <div class="ampel-status">{label_rendite} (Ziel: ≥ {target_rendite:.1f} %)</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="ampel-card ampel-{status_roe}">
+        <div class="ampel-title">EK-Rendite (ROE)</div>
+        <div class="ampel-value">{val_roe:.2f} %</div>
+        <div class="ampel-status">{label_roe} (Ziel: ≥ {target_roe:.1f} %)</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f"""
+    <div class="ampel-card ampel-{status_dscr}">
+        <div class="ampel-title">DSCR Schuldendienst</div>
+        <div class="ampel-value">{val_dscr:.2f}</div>
+        <div class="ampel-status">{label_dscr} (Ziel: ≥ {target_dscr:.2f})</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 limit_15 = afa_base * 0.15
 if sanierung > limit_15:
@@ -327,9 +475,9 @@ tab_dash, tab_plan, tab_tax, tab_stress = st.tabs([
 ])
 
 with tab_dash:
-    c1, c2 = st.columns([2, 1])
+    col_chart1, col_chart2 = st.columns([2, 1])
     
-    with c1:
+    with col_chart1:
         st.subheader("Vermögensaufbau vs. Restschuld")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#10b981", width=3)))
@@ -338,7 +486,7 @@ with tab_dash:
         fig.update_layout(template="plotly_white", height=400, margin=dict(l=20, r=20, t=30, b=20))
         st.plotly_chart(fig, use_container_width=True)
         
-    with c2:
+    with col_chart2:
         st.subheader("Gesamtinvestition & Kapital")
         fig_pie = px.pie(
             names=['Eigenkapital', 'Hausbank Darlehen', 'KfW Darlehen'],
