@@ -10,7 +10,7 @@ import json
 from supabase import create_client, Client
 
 # -----------------------------------------------------------------------------
-# PAGE CONFIG & MINIMALIST MODERN STYLING
+# PAGE CONFIG & APPLE DESIGN SYSTEM (CSS)
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="ImmoAnalyse Pro",
@@ -19,96 +19,76 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for Modern UI, Button-Tabs & Clean Alerts
+# Apple Design System CSS
 st.markdown("""
 <style>
-    /* Global Spacing & Fonts */
-    .main .block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1280px; }
+    /* Global Typography & Colors */
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+        color: #1d1d1f;
+    }
     
-    /* Top Navigation Bar */
-    .top-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #0f172a;
-        padding: 12px 24px;
-        border-radius: 12px;
-        color: white;
-        margin-bottom: 24px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    .main .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 3rem;
+        max-width: 1200px;
     }
-    .top-bar-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
-    .top-bar-user { font-size: 0.85rem; opacity: 0.85; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; }
-
-    /* Modern Button Tabs (Replaces Radio Dots) */
-    div[data-testid="stRadio"] > div {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 15px;
+    
+    /* Apple Clean Cards */
+    .apple-card {
+        background-color: #f5f5f7;
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
     }
-    div[data-testid="stRadio"] label {
-        background-color: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        padding: 10px 18px !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-        color: #334155;
+    
+    /* Apple Pill Buttons styling */
+    .stButton > button {
+        border-radius: 980px !important;
+        font-weight: 500 !important;
+        padding: 8px 20px !important;
+        transition: all 0.2s ease !important;
+        border: 1px solid #d2d2d7 !important;
+        background-color: #ffffff !important;
+        color: #1d1d1f !important;
     }
-    div[data-testid="stRadio"] label:hover {
-        background-color: #e2e8f0;
-        border-color: #cbd5e1;
+    
+    .stButton > button:hover {
+        border-color: #0066cc !important;
+        color: #0066cc !important;
+        background-color: #f5f5f7 !important;
     }
-    div[data-testid="stRadio"] label[data-checked="true"] {
-        background-color: #0f172a !important;
+    
+    /* Active Primary Pill Button */
+    .stButton > button[kind="primary"] {
+        background-color: #1d1d1f !important;
         color: #ffffff !important;
-        border-color: #0f172a !important;
-        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
-    }
-    div[data-testid="stRadio"] input[type="radio"] {
-        display: none !important;
+        border-color: #1d1d1f !important;
     }
     
-    /* Hero Section */
-    .hero-container {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        padding: 36px;
-        border-radius: 16px;
-        color: white;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    .stButton > button[kind="primary"]:hover {
+        background-color: #333336 !important;
+        color: #ffffff !important;
     }
-    .hero-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 8px; }
-    .hero-subtitle { font-size: 1.05rem; opacity: 0.85; max-width: 650px; line-height: 1.5; }
-    
-    /* Feature Cards */
-    .feature-card {
-        background: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    
-    /* Ampel KPI Cards */
+
+    /* KPI Ampel Cards (Apple Style) */
     .ampel-card {
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-        border: 1px solid #e2e8f0;
-        border-left-width: 6px;
+        border-radius: 16px;
+        padding: 18px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(0,0,0,0.05);
     }
-    .ampel-green { background-color: #f0fdf4; border-left-color: #22c55e; color: #14532d; }
-    .ampel-yellow { background-color: #fefce8; border-left-color: #eab308; color: #713f12; }
-    .ampel-red { background-color: #fef2f2; border-left-color: #ef4444; color: #7f1d1d; }
-    .ampel-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; opacity: 0.75; }
-    .ampel-value { font-size: 1.45rem; font-weight: 700; }
-    .ampel-status { font-size: 0.78rem; font-weight: 600; margin-top: 4px; }
+    .ampel-green { background-color: #eefdf4; border-left: 5px solid #22c55e; color: #14532d; }
+    .ampel-yellow { background-color: #fefce8; border-left: 5px solid #eab308; color: #713f12; }
+    .ampel-red { background-color: #fef2f2; border-left: 5px solid #ef4444; color: #7f1d1d; }
+    .ampel-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 4px; }
+    .ampel-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+    .ampel-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
+    
+    /* Hide Default Headers Decorators */
+    header[data-testid="stHeader"] { background: transparent; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -145,7 +125,7 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# SUPABASE HELPERS (SILENT ERROR HANDLING)
+# SUPABASE HELPERS
 # -----------------------------------------------------------------------------
 def get_supabase_client() -> Client:
     sb_url = st.session_state.get("supabase_url", "") or st.secrets.get("SUPABASE_URL", "")
@@ -163,14 +143,14 @@ def db_save_project(supabase: Client, user_id: str, project_name: str, payload: 
         if res.data and len(res.data) > 0:
             pid = res.data[0]["id"]
             supabase.table("projects").update({"input_data": payload}).eq("id", pid).execute()
-            st.success(f"Projekt '{project_name}' erfolgreich aktualisiert!")
+            st.success(f"Projekt '{project_name}' aktualisiert!")
         else:
             supabase.table("projects").insert({
                 "user_id": user_id,
                 "project_name": project_name,
                 "input_data": payload
             }).execute()
-            st.success(f"Projekt '{project_name}' neu in Datenbank gespeichert!")
+            st.success(f"Projekt '{project_name}' gespeichert!")
     except Exception as e:
         st.error(f"Fehler beim Speichern: {e}")
 
@@ -181,13 +161,12 @@ def db_get_projects(supabase: Client, user_id: str):
         res = supabase.table("projects").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
         return res.data or []
     except Exception:
-        # Silently fail if table doesn't exist yet so user only sees clean info banner
         return []
 
 def db_delete_project(supabase: Client, project_id: int):
     try:
         supabase.table("projects").delete().eq("id", project_id).execute()
-        st.success("Projekt aus Datenbank gelöscht!")
+        st.success("Projekt gelöscht!")
     except Exception as e:
         st.error(f"Fehler beim Löschen: {e}")
 
@@ -370,6 +349,8 @@ if "gemini_api_key" not in st.session_state:
     st.session_state["gemini_api_key"] = ""
 if "selected_strategy_name" not in st.session_state:
     st.session_state["selected_strategy_name"] = "Konservativ / Ausgewogen (Standard)"
+if "nav_choice" not in st.session_state:
+    st.session_state["nav_choice"] = "📁 Meine Projekte"
 
 default_state = {
     "obj_name": "MFH Musterstraße 12", "bundesland": "Niedersachsen", "kaufpreis": 350000.0,
@@ -390,38 +371,40 @@ for k, v in default_state.items():
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE (LANDING PAGE)
+# AUTH GATE (APPLE STYLE LANDING PAGE)
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
-    <div class="hero-container">
-        <div class="hero-title">🏢 ImmoAnalyse Pro</div>
-        <div class="hero-subtitle">Die smarte PropTech-Plattform für Immobilien-Investoren. Analysieren Sie Objekte in Sekunden mit KI, verwalten Sie Ihre Pipeline und sichern Sie profitable Deals.</div>
+    <div style="text-align: center; padding: 40px 20px 20px 20px;">
+        <h1 style="font-size: 3rem; font-weight: 800; letter-spacing: -1px;">ImmoAnalyse Pro</h1>
+        <p style="font-size: 1.25rem; color: #86868b; max-width: 600px; margin: 0 auto 30px auto;">
+            Die smarte PropTech-Suiten für professionelle Immobilien-Investoren.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
     col_landing1, col_landing2 = st.columns([1.2, 1])
 
     with col_landing1:
-        st.markdown("### 🚀 Highlights der Plattform")
         st.markdown("""
-        <div class="feature-card">
-            <b>🤖 KI-Exposé-Import</b><br>
-            Exposé als PDF hochladen – Gemini AI zieht Mieten, Kaufpreis & Baujahr vollautomatisch heraus.
+        <div class="apple-card">
+            <h3 style="margin-top:0;">🤖 KI-Exposé-Import</h3>
+            <p style="color:#86868b;">Exposé als PDF hochladen – Gemini AI zieht Mieten, Kaufpreis & Baujahr vollautomatisch heraus.</p>
         </div>
-        <div class="feature-card">
-            <b>🚦 Ampelsystem & Deal-Checker</b><br>
-            Bewerte Deals in Sekunden nach deiner individuellen Investment-Strategie.
+        <div class="apple-card">
+            <h3 style="margin-top:0;">🚦 Smartes Ampelsystem</h3>
+            <p style="color:#86868b;">Bewerte Deals in Sekunden nach deiner individuellen Investment-Strategie.</p>
         </div>
-        <div class="feature-card">
-            <b>☁️ Pipeline & Multi-Projekt-Verwaltung</b><br>
-            Speichere all deine Objekte in der Cloud und vergleiche sie Side-by-Side.
+        <div class="apple-card">
+            <h3 style="margin-top:0;">☁️ Multi-Projekt Cloud</h3>
+            <p style="color:#86868b;">Speichere all deine Objekte in der Cloud und vergleiche sie Side-by-Side.</p>
         </div>
         """, unsafe_allow_html=True)
 
     with col_landing2:
-        st.markdown("### 🔐 Anmelden / Registrieren")
-        auth_tab1, auth_tab2 = st.tabs(["Anmelden", "Registrieren"])
+        st.markdown("<div class='apple-card'>", unsafe_allow_html=True)
+        st.markdown("### 🔐 Anmelden")
+        auth_tab1, auth_tab2 = st.tabs(["Login", "Registrieren"])
         
         with auth_tab1:
             email_in = st.text_input("E-Mail Adresse", key="login_email")
@@ -447,7 +430,7 @@ if not st.session_state["authenticated"]:
         with auth_tab2:
             reg_email = st.text_input("E-Mail Adresse", key="reg_email")
             reg_pass = st.text_input("Passwort erstellen", type="password", key="reg_pass")
-            if st.button("✨ Kostenloses Profil erstellen", use_container_width=True):
+            if st.button("✨ Account erstellen", use_container_width=True):
                 if sb_client:
                     try:
                         res = sb_client.auth.sign_up({"email": reg_email, "password": reg_pass})
@@ -458,48 +441,55 @@ if not st.session_state["authenticated"]:
                     st.success("Demo-Profil angelegt! Nutzen Sie den Login-Tab.")
 
         st.divider()
-        if st.button("👤 Als Gast / Demo testen", use_container_width=True):
+        if st.button("👤 Gast / Demo-Zugang", use_container_width=True):
             st.session_state["authenticated"] = True
             st.session_state["user_email"] = "gast_investor@immo.de"
             st.rerun()
+            
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
 
 # -----------------------------------------------------------------------------
-# MAIN APPLICATION HEADER & STYLED TOP NAVIGATION
+# MAIN APPLICATION HEADER & APPLE TOP NAVIGATION BUTTONS
 # -----------------------------------------------------------------------------
 
-# TOP HEADER BAR WITH USER BADGE & LOGOUT BUTTON
+# APPLE TOP HEADER
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
     st.markdown("""
-    <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 5px;">
-        🏢 ImmoAnalyse Pro
+    <div style="font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; color: #1d1d1f;">
+        ImmoAnalyse Pro
     </div>
     """, unsafe_allow_html=True)
 with col_h2:
-    st.markdown(f"<div style='text-align: right; font-size: 0.9rem; font-weight: 600; color: #475569;'>👤 {st.session_state['user_email']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: right; font-size: 0.85rem; color: #86868b;'>👤 {st.session_state['user_email']}</div>", unsafe_allow_html=True)
     if st.button("🚪 Abmelden", key="btn_logout", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
         st.rerun()
 
-# TOP MAIN BUTTON TABS (No dots, sleek styled radio pills)
-nav_choice = st.radio(
-    "Hauptmenü",
-    ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis Rechner", "⚙️ Einstellungen"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+# APPLE ICON NAVIGATION BUTTONS (Zero Radio Dots!)
+nav_items = ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis", "⚙️ Einstellungen"]
+nav_cols = st.columns(len(nav_items))
+
+for idx, item in enumerate(nav_items):
+    is_active = (st.session_state["nav_choice"] == item)
+    btn_type = "primary" if is_active else "secondary"
+    if nav_cols[idx].button(item, key=f"nav_btn_{idx}", type=btn_type, use_container_width=True):
+        st.session_state["nav_choice"] = item
+        st.rerun()
 
 st.divider()
+
+nav_choice = st.session_state["nav_choice"]
 
 # =============================================================================
 # MODUL 1: 📁 MEINE PROJEKTE (PIPELINE DASHBOARD)
 # =============================================================================
 if nav_choice == "📁 Meine Projekte":
-    st.header("📁 Meine Immobilien-Pipeline")
-    st.caption("Verwalten und durchsuchen Sie all Ihre analysierten Objekte auf einen Blick.")
+    st.markdown("## 📁 Meine Immobilien-Pipeline")
+    st.markdown("<p style='color:#86868b;'>Verwalten Sie all Ihre analysierten Objekte auf einen Blick.</p>", unsafe_allow_html=True)
 
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
@@ -546,7 +536,7 @@ if nav_choice == "📁 Meine Projekte":
         st.dataframe(df_summary, use_container_width=True)
         
         st.divider()
-        st.subheader("⚡ Schnell-Aktionen")
+        st.markdown("### ⚡ Schnell-Aktionen")
         col_act1, col_act2 = st.columns(2)
         
         selected_project_name = col_act1.selectbox("Projekt auswählen", [p["project_name"] for p in projects])
@@ -555,7 +545,8 @@ if nav_choice == "📁 Meine Projekte":
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
             for k, v in p_target["input_data"].items():
                 st.session_state[k] = v
-            st.success(f"'{selected_project_name}' geladen! Wechseln Sie zum Reiter 'Analyse & Rechner'.")
+            st.session_state["nav_choice"] = "➕ Analyse & Rechner"
+            st.rerun()
 
         if col_act2.button("🗑️ Projekt unwiderruflich löschen", use_container_width=True):
             p_target = next(p for p in projects if p["project_name"] == selected_project_name)
@@ -665,7 +656,7 @@ elif nav_choice == "➕ Analyse & Rechner":
 
     col_t1, col_t2 = st.columns([3, 1])
     with col_t1:
-        st.title(f"🏢 {st.session_state['obj_name']}")
+        st.markdown(f"# 🏢 {st.session_state['obj_name']}")
         st.caption(f"Standort: {st.session_state['bundesland']} | Wohnfläche: {st.session_state['qm']:.0f} m² | Baujahr: {st.session_state['baujahr']}")
     with col_t2:
         current_payload = {k: st.session_state[k] for k in default_state.keys()}
@@ -698,27 +689,27 @@ elif nav_choice == "➕ Analyse & Rechner":
     with tab_dash:
         col_chart1, col_chart2 = st.columns([2, 1])
         with col_chart1:
-            st.subheader("Vermögensaufbau vs. Restschuld")
+            st.markdown("### Vermögensaufbau vs. Restschuld")
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#10b981", width=3)))
             fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#ef4444", width=3)))
-            fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital / NAV (€)", marker_color="#3b82f6", opacity=0.4))
-            fig.update_layout(template="plotly_white", height=400)
+            fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital / NAV (€)", marker_color="#0066cc", opacity=0.3))
+            fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig, use_container_width=True)
             
         with col_chart2:
-            st.subheader("Gesamtinvestition")
+            st.markdown("### Kapitalstruktur")
             fig_pie = px.pie(
                 names=['Eigenkapital', 'Hausbank', 'KfW'],
                 values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
-                color_discrete_sequence=['#3b82f6', '#0f172a', '#06b6d4'],
-                hole=0.4
+                color_discrete_sequence=['#0066cc', '#1d1d1f', '#86868b'],
+                hole=0.5
             )
-            fig_pie.update_layout(height=400)
+            fig_pie.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig_pie, use_container_width=True)
 
     with tab_plan:
-        st.subheader("10-Jahres Liquiditätsverlauf")
+        st.markdown("### 10-Jahres Liquiditätsverlauf")
         st.dataframe(df_proj.style.format({
             "Bruttomietrendite": "{:.2%}", "Brutto-Kaltmiete": "{:,.0f} €", "NOI": "{:,.0f} €",
             "Zinsen": "{:,.0f} €", "Tilgung": "{:,.0f} €", "CF v. St.": "{:,.0f} €",
@@ -727,7 +718,7 @@ elif nav_choice == "➕ Analyse & Rechner":
         }), use_container_width=True)
 
     with tab_tax:
-        st.subheader("Privatbesitz vs. VV-GmbH")
+        st.markdown("### Privatbesitz vs. VV-GmbH")
         tot_taxable = df_proj['NOI'].sum() - df_proj['Zinsen'].sum() - df_proj['AfA'].sum()
         tax_privat = tot_taxable * st.session_state["tax_rate"]
         tax_gmbh = tot_taxable * 0.15825
@@ -737,7 +728,7 @@ elif nav_choice == "➕ Analyse & Rechner":
         c_t3.metric("Ersparnis Haltephase GmbH", f"{tax_privat - tax_gmbh:,.0f} €")
 
     with tab_stress:
-        st.subheader("Refinanzierungs-Shock (Jahr 11)")
+        st.markdown("### Refinanzierungs-Shock (Jahr 11)")
         restschuld_10 = df_proj.loc[9, 'Restschuld']
         rates = [0.035, 0.045, 0.055, 0.065, 0.075]
         refin_data = []
@@ -751,13 +742,13 @@ elif nav_choice == "➕ Analyse & Rechner":
 # MODUL 3: ⚖️ DEAL-VERGLEICH (SIDE-BY-SIDE)
 # =============================================================================
 elif nav_choice == "⚖️ Deal-Vergleich":
-    st.header("⚖️ Multi-Deal Vergleich (Side-by-Side)")
-    st.caption("Vergleichen Sie bis zu 3 gespeicherte Objekte direkt nebeneinander.")
+    st.markdown("## ⚖️ Multi-Deal Vergleich")
+    st.markdown("<p style='color:#86868b;'>Vergleichen Sie bis zu 3 Objekte direkt nebeneinander.</p>", unsafe_allow_html=True)
     
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
     if len(projects) >= 2:
-        selected_deals = st.multiselect("Wählen Sie 2 bis 3 Objekte aus:", [p["project_name"] for p in projects], default=[p["project_name"] for p in projects[:2]])
+        selected_deals = st.multiselect("Projekte auswählen:", [p["project_name"] for p in projects], default=[p["project_name"] for p in projects[:2]])
         
         if len(selected_deals) >= 2:
             cols = st.columns(len(selected_deals))
@@ -792,23 +783,24 @@ elif nav_choice == "⚖️ Deal-Vergleich":
                 rendite = df_c.loc[0, 'Bruttomietrendite'] * 100
                 
                 with cols[idx]:
-                    st.subheader(f"🏢 {deal_name}")
+                    st.markdown(f"<div class='apple-card'><h3>🏢 {deal_name}</h3>", unsafe_allow_html=True)
                     st.metric("Kaufpreis", f"{d['kaufpreis']:,.0f} €")
                     st.metric("Cashflow n. St.", f"{cf_m:,.2f} €/M")
                     st.metric("Bruttomietrendite", f"{rendite:.2f} %")
                     st.metric("10-Jahres IRR", f"{irr*100:.2f} %")
                     st.metric("Eigenkapital", f"{ek_abs:,.0f} €")
+                    st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.warning("Bitte wählen Sie mindestens 2 Objekte aus.")
     else:
         st.info("💡 Sie benötigen mindestens 2 gespeicherte Objekte in der Cloud-Datenbank, um den Deal-Vergleich zu nutzen.")
 
 # =============================================================================
-# MODUL 4: 🧮 MAX. KAUFPREIS RECHNER (GEBOTS-RECHNER)
+# MODUL 4: 🧮 MAX. KAUFPREIS RECHNER
 # =============================================================================
-elif nav_choice == "🧮 Max. Kaufpreis Rechner":
-    st.header("🧮 Maximaler Kaufpreis Rechner (Reverse-Engineering)")
-    st.caption("Berechnen Sie, wie viel Sie maximal für ein Objekt bieten dürfen, um Ihr Cashflow-Ziel zu erreichen.")
+elif nav_choice == "🧮 Max. Kaufpreis":
+    st.markdown("## 🧮 Maximaler Kaufpreis Rechner")
+    st.markdown("<p style='color:#86868b;'>Ermitteln Sie Ihre Gebots-Obergrenze für Preisverhandlungen.</p>", unsafe_allow_html=True)
 
     col_g1, col_g2 = st.columns(2)
     
@@ -830,37 +822,35 @@ elif nav_choice == "🧮 Max. Kaufpreis Rechner":
                 break
                 
         st.metric("Maximaler Kaufpreis (Gebots-Obergrenze)", f"{best_price:,.0f} €", delta=f"{best_price - current_kp:,.0f} € zum Verkäuferpreis")
-        st.caption("Verwenden Sie diesen Wert als verhandlungssichere Argumentationsgrundlage beim Verkäufer!")
 
 # =============================================================================
 # MODUL 5: ⚙️ EINSTELLUNGEN
 # =============================================================================
 elif nav_choice == "⚙️ Einstellungen":
-    st.header("⚙️ Zentrale Einstellungen & Zugänge")
-    st.caption("Verwalten Sie Ihre API-Schlüssel, Datenbank-Verbindungen und Investment-Strategien.")
+    st.markdown("## ⚙️ Einstellungen & Zugänge")
+    st.markdown("<p style='color:#86868b;'>Verwalten Sie Schlüssel und Investment-Strategien.</p>", unsafe_allow_html=True)
 
-    tab_s1, tab_s2 = st.tabs(["🔑 API-Keys & Datenbank", "🎯 Investment-Strategien"])
+    tab_s1, tab_s2 = st.tabs(["🔑 API-Keys & DB", "🎯 Strategien"])
 
     with tab_s1:
-        st.subheader("Google Gemini API Key")
+        st.markdown("### Google Gemini API Key")
         gemini_key = st.text_input("API Key", value=st.session_state.get("gemini_api_key", ""), type="password")
         if gemini_key:
             st.session_state["gemini_api_key"] = gemini_key
-            st.success("Gemini API Key gespeichert!")
+            st.success("Gemini Key gespeichert!")
 
         st.divider()
-        st.subheader("Supabase Datenbank Verbindungsdaten")
+        st.markdown("### Supabase Datenbank")
         sb_u = st.text_input("Supabase URL", value=st.session_state.get("supabase_url", ""), type="password")
         sb_k = st.text_input("Supabase Anon Key", value=st.session_state.get("supabase_key", ""), type="password")
         if sb_u and sb_k:
             st.session_state["supabase_url"] = sb_u
             st.session_state["supabase_key"] = sb_k
-            st.success("Supabase-Verbindung konfiguriert!")
+            st.success("Supabase-Verbindung gespeichert!")
 
     with tab_s2:
-        st.subheader("Standard-Investment-Strategie wählen")
+        st.markdown("### Investment-Strategie")
         chosen_strat = st.selectbox("Aktive Strategie", list(STRATEGIES.keys()), index=0)
         st.session_state["selected_strategy_name"] = chosen_strat
         
-        st.markdown("**Aktuelle Schwellenwerte:**")
         st.json(STRATEGIES[chosen_strat])
