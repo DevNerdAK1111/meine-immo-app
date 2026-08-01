@@ -56,7 +56,7 @@ st.markdown("""
         background: linear-gradient(135deg, #ffffff 0%, #F7F4EC 100%);
         border: 2px dashed #D4C9B8;
         border-radius: 16px;
-        padding: 50px 30px;
+        padding: 40px 30px;
         text-align: center;
         margin: 20px 0;
     }
@@ -480,13 +480,13 @@ for k, v in default_state.items():
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE (CLEAN LANDING PAGE)
+# AUTH GATE (CLEAN LANDING PAGE WITH HIGH-END EDITORIAL IMAGERY)
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
-    <div style="text-align: center; padding: 30px 20px 10px 20px;">
-        <h1 style="font-size: 2.8rem; font-weight: 800; letter-spacing: -1px; color: #13381A;">Valuon Estate</h1>
-        <p style="font-size: 1.15rem; color: #555759; max-width: 550px; margin: 0 auto 25px auto;">
+    <div style="text-align: center; padding: 20px 20px 10px 20px;">
+        <h1 style="font-size: 3.2rem; font-weight: 800; letter-spacing: -1px; color: #13381A; margin-bottom: 5px;">Valuon Estate</h1>
+        <p style="font-size: 1.2rem; color: #555759; max-width: 600px; margin: 0 auto 20px auto;">
             Professional Real Estate Analysis & Valuation Suite.
         </p>
     </div>
@@ -495,18 +495,15 @@ if not st.session_state["authenticated"]:
     col_landing1, col_landing2 = st.columns([1.2, 1])
 
     with col_landing1:
+        # High-end royalty-free architectural image matching earth tones & british racing green vibe
+        st.image(
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80", 
+            use_container_width=True
+        )
         st.markdown("""
-        <div class="valuon-card">
-            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Automated Parsing</h3>
-            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Extrahieren Sie Objektdaten direkt aus Web-Links oder Exposé-Dokumenten.</p>
-        </div>
-        <div class="valuon-card">
-            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Dynamic Projections</h3>
-            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Przise 10-Jahres-Modellierung getrennt nach Objekt-Fakten und Finanzierungsstruktur.</p>
-        </div>
-        <div class="valuon-card">
-            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Cloud Portfolio</h3>
-            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Sichere Speicherung und direkter Vergleich Ihrer Anlageobjekte.</p>
+        <div class="valuon-card" style="margin-top: 20px;">
+            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Exquisite Asset Intelligence</h3>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Automatisierter Datenabgleich, präzise Renditemodellierung und strategische Portfolio-Planung in einem minimalistischen Workspace.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -565,21 +562,26 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# MAIN APPLICATION HEADER & TOP NAVIGATION
+# MAIN APPLICATION HEADER & TOP NAVIGATION (ENLARGED BRAND TITLE)
 # -----------------------------------------------------------------------------
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
     st.markdown("""
-    <div style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; color: #13381A;">
+    <div style="font-size: 2.3rem; font-weight: 800; letter-spacing: -0.8px; color: #13381A; line-height: 1.1;">
         Valuon Estate
+    </div>
+    <div style="font-size: 0.85rem; color: #A37841; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">
+        Investment Suite
     </div>
     """, unsafe_allow_html=True)
 with col_h2:
-    st.markdown(f"<div style='text-align: right; font-size: 0.85rem; color: #555759;'>Konto: {st.session_state['user_email']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: right; font-size: 0.85rem; color: #555759; margin-top: 10px;'>Konto: {st.session_state['user_email']}</div>", unsafe_allow_html=True)
     if st.button("Abmelden", key="btn_logout", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
         st.rerun()
+
+st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
 
 nav_items = ["Pipeline", "Analyse", "Vergleich", "Kaufpreis", "Einstellungen"]
 nav_cols = st.columns(len(nav_items))
@@ -781,11 +783,16 @@ elif nav_choice == "Analyse":
         st.markdown("""
         <div class="valuon-placeholder">
             <h2 style="font-size: 1.8rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Objektbewertung initialisieren</h2>
-            <p style="font-size: 1.05rem; color: #555759; max-width: 580px; margin: 0 auto 25px auto;">
+            <p style="font-size: 1.05rem; color: #555759; max-width: 580px; margin: 0 auto 15px auto;">
                 Bitte erfassen Sie in der linken Seitenleiste mindestens den <b>Kaufpreis</b> und die <b>Wohnfläche</b> oder nutzen Sie den automatisierten Import.
             </p>
         </div>
         """, unsafe_allow_html=True)
+        # Architectural accent image matching the warm tone / green style
+        st.image(
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80",
+            use_container_width=True
+        )
     else:
         df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base = calc_10y_projection(input_data)
 
