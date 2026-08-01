@@ -19,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Apple Design System CSS
 st.markdown("""
 <style>
     /* Global Typography & Colors */
@@ -87,7 +86,6 @@ st.markdown("""
     .ampel-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
     .ampel-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
     
-    /* Hide Default Headers Decorators */
     header[data-testid="stHeader"] { background: transparent; }
 </style>
 """, unsafe_allow_html=True)
@@ -125,8 +123,12 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# SUPABASE HELPERS
+# SECRETS & HELPERS
 # -----------------------------------------------------------------------------
+def get_gemini_api_key() -> str:
+    """Holt den Gemini API-Key entweder aus der Session oder automatisch aus den Secrets."""
+    return st.session_state.get("gemini_api_key", "") or st.secrets.get("GEMINI_API_KEY", "")
+
 def get_supabase_client() -> Client:
     sb_url = st.session_state.get("supabase_url", "") or st.secrets.get("SUPABASE_URL", "")
     sb_key = st.session_state.get("supabase_key", "") or st.secrets.get("SUPABASE_KEY", "")
@@ -378,7 +380,7 @@ if not st.session_state["authenticated"]:
     <div style="text-align: center; padding: 40px 20px 20px 20px;">
         <h1 style="font-size: 3rem; font-weight: 800; letter-spacing: -1px;">ImmoAnalyse Pro</h1>
         <p style="font-size: 1.25rem; color: #86868b; max-width: 600px; margin: 0 auto 30px auto;">
-            Die smarte PropTech-Suiten für professionelle Immobilien-Investoren.
+            Die smarte PropTech-Suite für professionelle Immobilien-Investoren.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -469,7 +471,7 @@ with col_h2:
         st.session_state["user_email"] = ""
         st.rerun()
 
-# APPLE ICON NAVIGATION BUTTONS (Zero Radio Dots!)
+# APPLE ICON NAVIGATION BUTTONS
 nav_items = ["📁 Meine Projekte", "➕ Analyse & Rechner", "⚖️ Deal-Vergleich", "🧮 Max. Kaufpreis", "⚙️ Einstellungen"]
 nav_cols = st.columns(len(nav_items))
 
@@ -563,13 +565,14 @@ elif nav_choice == "➕ Analyse & Rechner":
     
     with st.sidebar:
         st.subheader("🤖 KI-Exposé-Import")
-        api_key = st.session_state.get("gemini_api_key", "")
+        active_api_key = get_gemini_api_key()
+        
         uploaded_pdf = st.file_uploader("Exposé PDF hochladen", type=["pdf"])
         
-        if uploaded_pdf and api_key:
+        if uploaded_pdf and active_api_key:
             if st.button("✨ Exposé per KI analysieren", use_container_width=True):
                 with st.spinner("Lese PDF..."):
-                    ai_data = analyze_pdf_with_gemini(api_key, uploaded_pdf)
+                    ai_data = analyze_pdf_with_gemini(active_api_key, uploaded_pdf)
                     if ai_data:
                         if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
                         if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
@@ -579,6 +582,8 @@ elif nav_choice == "➕ Analyse & Rechner":
                         if ai_data.get("objektname"): st.session_state["obj_name"] = str(ai_data["objektname"])
                         st.success("KI-Daten übernommen!")
                         st.rerun()
+        elif uploaded_pdf and not active_api_key:
+            st.warning("⚠️ Bitte Gemini API Key in den Einstellungen hinterlegen.")
 
         st.divider()
         st.subheader("1. Stammdaten")
@@ -834,19 +839,27 @@ elif nav_choice == "⚙️ Einstellungen":
 
     with tab_s1:
         st.markdown("### Google Gemini API Key")
-        gemini_key = st.text_input("API Key", value=st.session_state.get("gemini_api_key", ""), type="password")
+        gem_secrets = st.secrets.get("GEMINI_API_KEY", "")
+        if gem_secrets:
+            st.success("🟢 API-Key wurde automatisch aus den Streamlit Secrets geladen!")
+        
+        gemini_key = st.text_input("Manuell überschreiben", value=st.session_state.get("gemini_api_key", ""), type="password", help="Falls leer, wird automatisch der Key aus den Secrets genutzt.")
         if gemini_key:
             st.session_state["gemini_api_key"] = gemini_key
-            st.success("Gemini Key gespeichert!")
+            st.success("Manueller Gemini Key gespeichert!")
 
         st.divider()
         st.markdown("### Supabase Datenbank")
-        sb_u = st.text_input("Supabase URL", value=st.session_state.get("supabase_url", ""), type="password")
-        sb_k = st.text_input("Supabase Anon Key", value=st.session_state.get("supabase_key", ""), type="password")
+        sb_u_secrets = st.secrets.get("SUPABASE_URL", "")
+        if sb_u_secrets:
+            st.success("🟢 Supabase-Datenbank ist automatisch aus den Streamlit Secrets verbunden!")
+            
+        sb_u = st.text_input("Supabase URL (Manuell)", value=st.session_state.get("supabase_url", ""), type="password")
+        sb_k = st.text_input("Supabase Anon Key (Manuell)", value=st.session_state.get("supabase_key", ""), type="password")
         if sb_u and sb_k:
             st.session_state["supabase_url"] = sb_u
             st.session_state["supabase_key"] = sb_k
-            st.success("Supabase-Verbindung gespeichert!")
+            st.success("Manuelle Supabase-Verbindung gespeichert!")
 
     with tab_s2:
         st.markdown("### Investment-Strategie")
