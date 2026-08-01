@@ -162,7 +162,7 @@ def db_delete_project(supabase: Client, project_id: int):
         st.error(f"Fehler beim Löschen: {e}")
 
 # -----------------------------------------------------------------------------
-# CALCULATION & AI FUNCTIONS
+# CALCULATION & AI FUNCTIONS (WITH MODEL FALLBACK LOOP)
 # -----------------------------------------------------------------------------
 def get_ampel_status(val, target_green, target_yellow):
     if val >= target_green:
@@ -203,11 +203,31 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         {text[:6000]}
         """
         
-        # Umstellung auf gemini-1.5-flash für vollen Free-Tier-Support!
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-                
+        # Modelle mit Fallback-Kette (sucht automatisch das beste verfügbare Modell)
+        candidate_models = [
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro-latest',
+            'gemini-2.0-flash',
+            'gemini-1.0-pro'
+        ]
+        
+        response = None
+        last_exception = None
+
+        for model_name in candidate_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    break
+            except Exception as m_err:
+                last_exception = m_err
+                continue
+
         if not response or not response.text:
+            if last_exception:
+                raise last_exception
             st.error("Keine Antwort von der KI erhalten.")
             return None
 
