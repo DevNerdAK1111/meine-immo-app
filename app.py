@@ -42,6 +42,35 @@ st.markdown("""
         z-index: 1;
     }
     
+    /* Immersive Landing Hero Background */
+    .landing-hero {
+        background: linear-gradient(135deg, #13381A 0%, #1c4d26 50%, #2b2d2f 100%);
+        border-radius: 20px;
+        padding: 50px 40px;
+        color: #F7F4EC;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(19, 56, 26, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .landing-hero::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        opacity: 0.12;
+        z-index: 0;
+    }
+    
+    .landing-content {
+        position: relative;
+        z-index: 1;
+    }
+
     /* Valuon Estate Cards */
     .valuon-card {
         background-color: #ffffff;
@@ -480,36 +509,43 @@ for k, v in default_state.items():
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE (CLEAN LANDING PAGE WITH HIGH-END EDITORIAL IMAGERY)
+# AUTH GATE (IMMERSIVE EDITORIAL LANDING PAGE WITH PARALLAX HERO & GALLERY)
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
-    <div style="text-align: center; padding: 20px 20px 10px 20px;">
-        <h1 style="font-size: 3.2rem; font-weight: 800; letter-spacing: -1px; color: #13381A; margin-bottom: 5px;">Valuon Estate</h1>
-        <p style="font-size: 1.2rem; color: #555759; max-width: 600px; margin: 0 auto 20px auto;">
-            Professional Real Estate Analysis & Valuation Suite.
-        </p>
+    <div class="landing-hero">
+        <div class="landing-content">
+            <div style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: #A37841; margin-bottom: 8px;">Institutional Grade Suite</div>
+            <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1.5px; color: #F7F4EC; margin-bottom: 15px; line-height: 1.05;">Valuon Estate</h1>
+            <p style="font-size: 1.25rem; color: #D4C9B8; max-width: 650px; margin: 0 0 25px 0; font-weight: 300;">
+                Die hochentwickelte Analyse- und Bewertungsumgebung für professionelle Immobilien-Investitionen und Portfoliostrukturierung.
+            </p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    col_landing1, col_landing2 = st.columns([1.2, 1])
+    col_landing1, col_landing2 = st.columns([1.3, 1])
 
     with col_landing1:
-        # High-end royalty-free architectural image matching earth tones & british racing green vibe
-        st.image(
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80", 
-            use_container_width=True
-        )
+        # Editorial Multi-Image Grid / Eye Catcher
+        col_img1, col_img2 = st.columns(2)
+        with col_img1:
+            st.image("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80", use_container_width=True)
+            st.image("https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80", use_container_width=True)
+        with col_img2:
+            st.image("https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80", use_container_width=True)
+            st.image("https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=600&q=80", use_container_width=True)
+        
         st.markdown("""
-        <div class="valuon-card" style="margin-top: 20px;">
-            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Exquisite Asset Intelligence</h3>
-            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Automatisierter Datenabgleich, präzise Renditemodellierung und strategische Portfolio-Planung in einem minimalistischen Workspace.</p>
+        <div class="valuon-card" style="margin-top: 15px;">
+            <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Präzision in jedem Deal</h3>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Automatisierter Exposé-Abgleich via Gemini AI, granulare 10-Jahres-Projektionen und automatisierte Risikotests im zeitlosen Heritage-Design.</p>
         </div>
         """, unsafe_allow_html=True)
 
     with col_landing2:
         st.markdown("<div class='valuon-card'>", unsafe_allow_html=True)
-        st.markdown("### Anmeldung")
+        st.markdown("### Zugangsportal")
         auth_tab1, auth_tab2 = st.tabs(["Login", "Registrieren"])
         
         with auth_tab1:
@@ -788,9 +824,8 @@ elif nav_choice == "Analyse":
             </p>
         </div>
         """, unsafe_allow_html=True)
-        # Architectural accent image matching the warm tone / green style
         st.image(
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
             use_container_width=True
         )
     else:
