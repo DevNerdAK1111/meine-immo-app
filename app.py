@@ -173,7 +173,7 @@ def db_delete_project(supabase: Client, project_id: int):
         st.error(f"Fehler beim Löschen: {e}")
 
 # -----------------------------------------------------------------------------
-# CALCULATION & AI FUNCTIONS
+# CALCULATION & AI FUNCTIONS (WITH FRIENDLY ERROR HANDLING)
 # -----------------------------------------------------------------------------
 def get_ampel_status(val, target_green, target_yellow):
     if val >= target_green:
@@ -190,6 +190,10 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
         text = ""
         for page in reader.pages:
             text += page.extract_text() or ""
+            
+        if not text.strip():
+            st.warning("⚠️ Das PDF enthält keinen lesbaren Text (evtl. ein eingescanntes Bild-PDF).")
+            return None
         
         prompt = f"""
         Du bist ein Immobilien-Experte. Analysiere den folgenden Exposé-Text und extrahiere die Daten als valides JSON.
@@ -224,8 +228,21 @@ def analyze_pdf_with_gemini(api_key, pdf_file):
             cleaned_json = cleaned_json[start_idx:end_idx+1]
             
         return json.loads(cleaned_json)
+
     except Exception as e:
-        st.error(f"Fehler bei der KI-Analyse: {str(e)}")
+        err_msg = str(e)
+        if "429" in err_msg or "quota" in err_msg.lower():
+            st.error(
+                "⏳ **API-Limit von Google kurzzeitig erreicht!**\n\n"
+                "Das kostenlose Anfrage-Limit für diesen Gemini-Schlüssel wurde überschritten.\n\n"
+                "**Lösungsmöglichkeiten:**\n"
+                "1. Bitte **1 bis 2 Minuten warten** und erneut versuchen.\n"
+                "2. Oder im Reiter **⚙️ Einstellungen** einen neuen Gemini API Key (von aistudio.google.dev) eintragen."
+            )
+        elif "API_KEY" in err_msg.upper() or "INVALID" in err_msg.upper():
+            st.error("🔑 **Ungültiger Gemini API-Key:** Bitte überprüfen Sie Ihren Schlüssel unter *⚙️ Einstellungen*.")
+        else:
+            st.error(f"⚠️ **Fehler bei der KI-Analyse:** {err_msg}")
         return None
 
 def calc_10y_projection(data):
