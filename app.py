@@ -19,11 +19,53 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS für Landing Page, Login-Card & Ampelsystem
 st.markdown("""
 <style>
     .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     
+    /* Hero Header Styling */
+    .hero-container {
+        background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
+                    url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1600&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        padding: 40px;
+        border-radius: 15px;
+        color: white;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .hero-title {
+        font-size: 2.4rem;
+        font-weight: 800;
+        margin-bottom: 10px;
+        color: #ffffff;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        max-width: 700px;
+        margin-bottom: 15px;
+    }
+    
+    /* Login & Feature Cards */
+    .auth-card {
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+    }
+    .feature-box {
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 4px solid #3b82f6;
+        margin-bottom: 15px;
+    }
+    
+    /* Ampel-Card Styling */
     .ampel-card {
         border-radius: 10px;
         padding: 15px;
@@ -73,18 +115,20 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# SUPABASE HELPERS
+# SUPABASE HELPERS & AUTH
 # -----------------------------------------------------------------------------
-def get_supabase_client(url: str, key: str) -> Client:
-    try:
-        return create_client(url, key)
-    except Exception as e:
-        st.error(f"Supabase Verbindungsfehler: {e}")
-        return None
+def get_supabase_client() -> Client:
+    sb_url = st.secrets.get("SUPABASE_URL", "")
+    sb_key = st.secrets.get("SUPABASE_KEY", "")
+    if sb_url and sb_key:
+        try:
+            return create_client(sb_url, sb_key)
+        except Exception:
+            return None
+    return None
 
 def db_save_project(supabase: Client, user_id: str, project_name: str, payload: dict):
     try:
-        # Check if project exists for user
         res = supabase.table("projects").select("id").eq("user_id", user_id).eq("project_name", project_name).execute()
         if res.data and len(res.data) > 0:
             pid = res.data[0]["id"]
@@ -189,9 +233,6 @@ def calc_10y_projection(data):
     hb_loan = fk_tot * data['hb_share']
     kfw_loan = max(0, data['kfw_amt'] - data['kfw_grant'])
     
-    hb_rate = hb_loan * (data['hb_zins'] + data['hb_tilg'])
-    kfw_rate = kfw_loan * (data['kfw_zins'] + data['kfw_tilg']) if kfw_loan > 0 else 0
-    
     afa_base = (kp + nk_abs) * (1 - data['grund_anteil'])
     
     rows = []
@@ -252,8 +293,8 @@ def calc_10y_projection(data):
         cf_n_st = cf_v_st - tax_val
         
         restschuld_hb = max(0, restschuld_hb - tilg_hb - sondertilg)
-        restschuld_kfw = max(0, restschuld_kfw - tilg_kfw)
-        restschuld_tot = restschuld_hb + restschuld_kfw
+        restschuld_rest = max(0, restschuld_kfw - tilg_kfw)
+        restschuld_tot = restschuld_hb + restschuld_rest
         
         obj_val *= (1 + data['val_inc'])
         nav = obj_val - restschuld_tot
@@ -287,12 +328,15 @@ def calc_10y_projection(data):
     return df, tot_inv, ek_abs, fk_tot, irr, afa_base
 
 # -----------------------------------------------------------------------------
-# SESSION STATE INITIALIZATION FOR FORM FIELDS
+# SESSION STATE INITIALIZATION
 # -----------------------------------------------------------------------------
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "user_email" not in st.session_state:
+    st.session_state["user_email"] = ""
 if "gemini_api_key" not in st.session_state:
     st.session_state["gemini_api_key"] = ""
 
-# Default Input State
 default_state = {
     "obj_name": "MFH Musterstraße 12", "bundesland": "Niedersachsen", "kaufpreis": 350000.0,
     "qm": 120.0, "baujahr": 1998, "sanierung": 35000.0, "grund_anteil": 0.20,
@@ -310,31 +354,108 @@ for k, v in default_state.items():
         st.session_state[k] = v
 
 # -----------------------------------------------------------------------------
-# SIDEBAR / NAVIGATION & DATABASE
+# LANDING PAGE & AUTH GATE
+# -----------------------------------------------------------------------------
+sb_client = get_supabase_client()
+
+if not st.session_state["authenticated"]:
+    # HERO HEADER
+    st.markdown("""
+    <div class="hero-container">
+        <div class="hero-title">🏢 ImmoAnalyse Pro</div>
+        <div class="hero-subtitle">Die smarte PropTech-Plattform für professionelle Immobilien-Investoren. Analysieren Sie Angebote in Sekunden mit KI, verwalten Sie Ihr Portfolio und sichern Sie profitable Deals.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_landing1, col_landing2 = st.columns([1.2, 1])
+
+    with col_landing1:
+        st.markdown("### 🚀 Warum ImmoAnalyse Pro?")
+        
+        st.markdown("""
+        <div class="feature-box">
+            <b>🤖 KI-Exposé-Import</b><br>
+            Laden Sie einfach PDF-Exposés hoch. Gemini AI extrahiert Kaufpreis, Mietverträge und Objekt-Daten vollautomatisch.
+        </div>
+        <div class="feature-box">
+            <b>🚦 Intelligentes Ampelsystem</b><br>
+            Prüfen Sie sofort, ob ein Objekt Ihre individuellen Ziel-KPIs (Cashflow, DSCR, ROE, Rendite) erfüllt.
+        </div>
+        <div class="feature-box">
+            <b>☁️ Multi-Projekt Cloud-Speicher</b><br>
+            Speichern und vergleichen Sie all Ihre Investment-Objekte sicher in Ihrem persönlichen Nutzerkonto.
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_landing2:
+        st.markdown("### 🔐 Anmelden / Registrieren")
+        
+        auth_tab1, auth_tab2 = st.tabs(["Anmelden", "Registrieren"])
+        
+        with auth_tab1:
+            email_in = st.text_input("E-Mail Adresse", key="login_email")
+            pass_in = st.text_input("Passwort", type="password", key="login_pass")
+            
+            if st.button("🔑 Anmelden", type="primary", use_container_width=True):
+                if sb_client:
+                    try:
+                        res = sb_client.auth.sign_in_with_password({"email": email_in, "password": pass_in})
+                        st.session_state["authenticated"] = True
+                        st.session_state["user_email"] = email_in
+                        st.success("Erfolgreich eingeloggt!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Login fehlgeschlagen: {e}")
+                else:
+                    if email_in and pass_in:
+                        st.session_state["authenticated"] = True
+                        st.session_state["user_email"] = email_in
+                        st.rerun()
+                    else:
+                        st.error("Bitte E-Mail und Passwort eingeben.")
+
+        with auth_tab2:
+            reg_email = st.text_input("E-Mail Adresse", key="reg_email")
+            reg_pass = st.text_input("Passwort erstellen", type="password", key="reg_pass")
+            
+            if st.button("✨ Kostenloses Profil erstellen", use_container_width=True):
+                if sb_client:
+                    try:
+                        res = sb_client.auth.sign_up({"email": reg_email, "password": reg_pass})
+                        st.success("Profil erstellt! Sie können sich jetzt anmelden.")
+                    except Exception as e:
+                        st.error(f"Registrierung fehlgeschlagen: {e}")
+                else:
+                    st.success("Demo-Profil angelegt! Nutzen Sie den Login-Tab.")
+
+        st.divider()
+        if st.button("👤 Als Gast / Demo testen", use_container_width=True):
+            st.session_state["authenticated"] = True
+            st.session_state["user_email"] = "gast_investor@immo.de"
+            st.rerun()
+
+    st.stop()  # Stoppt hier, falls nicht eingeloggt!
+
+# -----------------------------------------------------------------------------
+# MAIN APP (NUR NACH LOGIN SICHTBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.title("🏢 ImmoAnalyse Pro")
-    st.caption("Institutional Investment & AI Suite")
+    st.caption(f"Eingeloggt als: **{st.session_state['user_email']}**")
+    
+    if st.button("🚪 Abmelden"):
+        st.session_state["authenticated"] = False
+        st.session_state["user_email"] = ""
+        st.rerun()
+        
+    st.divider()
 
     # EXPANDER: DATENBANK & PROJEKT-VERWALTUNG
-    with st.expander("☁️ **Datenbank & Projekte**", expanded=False):
-        user_id = st.text_input("Nutzer ID / Email", value="demo_user", help="Eindeutige Kennung für Ihre Projekte")
-        
-        # Check Streamlit Secrets or manual input for Supabase
-        sb_url = st.secrets.get("SUPABASE_URL", "") if "SUPABASE_URL" in st.secrets else st.text_input("Supabase URL", type="password")
-        sb_key = st.secrets.get("SUPABASE_KEY", "") if "SUPABASE_KEY" in st.secrets else st.text_input("Supabase Anon Key", type="password")
-        
-        sb_client = None
-        if sb_url and sb_key:
-            sb_client = get_supabase_client(sb_url, sb_key)
-            if sb_client:
-                st.caption("🟢 Supabase Cloud verbunden")
-
-        st.divider()
-        st.markdown("**📂 Gespeicherte Projekte:**")
+    with st.expander("☁️ **Meine Projekte & Cloud**", expanded=True):
+        st.markdown("**📂 Gespeicherte Objekte:**")
         
         if sb_client:
-            projects = db_get_projects(sb_client, user_id)
+            projects = db_get_projects(sb_client, st.session_state["user_email"])
             if projects:
                 proj_names = [p["project_name"] for p in projects]
                 selected_p = st.selectbox("Projekt auswählen", proj_names)
@@ -352,41 +473,26 @@ with st.sidebar:
                     db_delete_project(sb_client, p_obj["id"])
                     st.rerun()
             else:
-                st.info("Noch keine Projekte in DB.")
+                st.info("Noch keine Projekte in der Cloud gespeichert.")
         else:
-            st.info("Geben Sie Supabase-Keys ein, um Projekte in der Cloud zu speichern.")
+            st.warning("Keine Supabase-Keys in Secrets hinterlegt (Lokal-Modus).")
 
         st.divider()
-        st.markdown("**📤 JSON Backup (Ohne DB):**")
-        
-        # Current input dictionary for saving
         current_payload = {k: st.session_state[k] for k in default_state.keys()}
         
-        if sb_client and st.button("💾 In Cloud-DB Speichern"):
-            db_save_project(sb_client, user_id, st.session_state["obj_name"], current_payload)
+        if sb_client and st.button("💾 Objekt in Cloud Speichern", use_container_width=True):
+            db_save_project(sb_client, st.session_state["user_email"], st.session_state["obj_name"], current_payload)
 
-        # JSON Download Button
         st.download_button(
-            label="💾 JSON Herunterladen",
+            label="💾 Projekt als JSON speichern",
             data=json.dumps(current_payload, indent=2),
             file_name=f"{st.session_state['obj_name'].replace(' ', '_')}.json",
-            mime="application/json"
+            mime="application/json",
+            use_container_width=True
         )
-        
-        uploaded_json = st.file_uploader("📂 JSON Datei laden", type=["json"])
-        if uploaded_json:
-            try:
-                loaded_dict = json.load(uploaded_json)
-                for k, v in loaded_dict.items():
-                    if k in st.session_state:
-                        st.session_state[k] = v
-                st.success("JSON erfolgreich importiert!")
-                st.rerun()
-            except Exception as e:
-                st.error("Fehler beim JSON Import.")
 
     # EXPANDER: STRATEGIE & ZIEL-KPIS
-    with st.expander("🎯 **Strategie & Ziel-KPIs (Ampelsystem)**", expanded=False):
+    with st.expander("🎯 **Strategie & Ziel-KPIs**", expanded=False):
         selected_strategy = st.selectbox("Investment-Strategie", list(STRATEGIES.keys()) + ["Benutzerdefiniert"])
         
         if selected_strategy != "Benutzerdefiniert":
