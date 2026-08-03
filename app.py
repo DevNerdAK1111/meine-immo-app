@@ -406,7 +406,6 @@ def update_ist_from_monat():
     else:
         st.session_state["ist_sqm"] = 0.0
         
-    # Auto-sync target rent if auto_sync is enabled
     if st.session_state.get("target_auto_sync", True):
         st.session_state["target_miete_monat"] = monat
         if qm > 0:
@@ -421,7 +420,6 @@ def update_ist_from_sqm():
     else:
         st.session_state["ist_miete_monat"] = 0.0
         
-    # Auto-sync target rent if auto_sync is enabled
     if st.session_state.get("target_auto_sync", True):
         st.session_state["target_miete_monat"] = st.session_state.get("ist_miete_monat", 0.0)
         st.session_state["target_sqm"] = sqm_val
@@ -433,7 +431,6 @@ def update_target_from_monat():
         st.session_state["target_sqm"] = monat / qm
     else:
         st.session_state["target_sqm"] = 0.0
-    # User explicitly edited target rent, disable auto-sync
     st.session_state["target_auto_sync"] = False
 
 def update_target_from_sqm():
@@ -443,7 +440,6 @@ def update_target_from_sqm():
         st.session_state["target_miete_monat"] = sqm_val * qm
     else:
         st.session_state["target_miete_monat"] = 0.0
-    # User explicitly edited target rent, disable auto-sync
     st.session_state["target_auto_sync"] = False
 
 def update_qm_callback():
@@ -843,7 +839,7 @@ if st.session_state.get("grwt_p", 0.0) == 0.0:
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE
+# AUTH GATE (WITH PERMANENT DEVELOPER LOGIN)
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
@@ -879,13 +875,21 @@ if not st.session_state["authenticated"]:
     with col_landing2:
         st.markdown("<div class='valuon-card'>", unsafe_allow_html=True)
         st.markdown("### Zugangsportal")
+        
+        # PROMINENT DEVELOPER BUTTON FOR INSTANT UNINTERRUPTED ACCESS
+        if st.button("🛠️ Als Entwickler einloggen (Permanenter Modus)", type="primary", use_container_width=True):
+            st.session_state["authenticated"] = True
+            st.session_state["user_email"] = "developer@valuon-estate.de"
+            st.rerun()
+
+        st.divider()
         auth_tab1, auth_tab2 = st.tabs(["Login", "Registrieren"])
         
         with auth_tab1:
             email_in = st.text_input("E-Mail-Adresse", key="login_email")
             pass_in = st.text_input("Passwort", type="password", key="login_pass")
             
-            if st.button("Anmelden", type="primary", use_container_width=True):
+            if st.button("Anmelden", use_container_width=True):
                 if sb_client:
                     try:
                         res = sb_client.auth.sign_in_with_password({"email": email_in, "password": pass_in})
@@ -914,25 +918,6 @@ if not st.session_state["authenticated"]:
                         st.error(f"Registrierung fehlgeschlagen: {e}")
                 else:
                     st.success("Demo-Profil angelegt. Bitte wechseln Sie zum Login-Tab.")
-
-        st.divider()
-        if st.button("Demo-Modus starten", use_container_width=True):
-            st.session_state["authenticated"] = True
-            st.session_state["user_email"] = "analyst@valuon-estate.de"
-            st.session_state["kaufpreis"] = 0.0
-            st.session_state["qm"] = 0.0
-            st.session_state["obj_name"] = ""
-            st.session_state["ist_miete_monat"] = 0.0
-            st.session_state["ist_sqm"] = 0.0
-            st.session_state["target_miete_monat"] = 0.0
-            st.session_state["target_sqm"] = 0.0
-            st.session_state["notar_p"] = 2.0
-            st.session_state["makler_p"] = 3.57
-            st.session_state["grwt_p"] = 5.0
-            st.session_state["ek_euro"] = 0.0
-            st.session_state["trigger_analysis"] = False
-            st.session_state["target_auto_sync"] = True
-            st.rerun()
             
         st.markdown("</div>", unsafe_allow_html=True)
 
