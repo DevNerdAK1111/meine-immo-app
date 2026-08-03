@@ -365,7 +365,7 @@ def render_analyse_view(sb_client):
 
             with tab_plan:
                 st.markdown("### Liquiditätsverlauf, steuerliche Abschreibung & Kapitalentwicklung")
-                st.markdown("<p style='color:#555759; font-size: 0.9rem; margin-bottom: 15px;'>Wählen Sie einen Themenbereich, um alle Kennzahlen übersichtlich und ohne horizontales Scrollen zu betrachten.</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#555759; font-size: 0.9rem; margin-bottom: 15px;'>Wählen Sie einen Themenbereich, um alle Kennzahlen übersichtlich und vollständig ohne Scrollen zu betrachten.</p>", unsafe_allow_html=True)
                 
                 df_display = df_proj.rename(columns={
                     "Bruttomietrendite": "Mietrendite (brutto)",
@@ -382,6 +382,9 @@ def render_analyse_view(sb_client):
                     "NAV": "Netto-EK (NAV)",
                     "LTV": "Beleihungsauslauf (LTV)"
                 })
+                
+                # Dynamische Berechnung der Tabellenhöhe, damit alle Zeilen (inkl. Gesamt) ohne Scrollen sichtbar sind
+                table_height = (len(df_display) + 2) * 35 + 38
                 
                 sub_t1, sub_t2, sub_t3 = st.tabs(["Mieten & Cashflow", "Kapitaldienst & Steuern", "Vermögen & Bilanz"])
                 
@@ -404,7 +407,7 @@ def render_analyse_view(sb_client):
                         "Reinertrag (NOI)": lambda x: fmt_eur(x), 
                         "Cashflow (vor St.)": lambda x: fmt_eur(x), 
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True)
+                    }), use_container_width=True, height=table_height)
                     
                 with sub_t2:
                     cols_2 = ["Jahr", "Zinsaufwand", "Tilgungsleistung", "Abschreibung (AfA)", "Einkommensteuer", "Cashflow (nach St.)"]
@@ -425,7 +428,7 @@ def render_analyse_view(sb_client):
                         "Abschreibung (AfA)": lambda x: fmt_eur(x), 
                         "Einkommensteuer": lambda x: fmt_eur(x),
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True)
+                    }), use_container_width=True, height=table_height)
                     
                 with sub_t3:
                     cols_3 = ["Jahr", "Restschuld", "Objektwert", "Netto-EK (NAV)", "Beleihungsauslauf (LTV)"]
@@ -444,7 +447,7 @@ def render_analyse_view(sb_client):
                         "Objektwert": lambda x: fmt_eur(x),
                         "Netto-EK (NAV)": lambda x: fmt_eur(x), 
                         "Beleihungsauslauf (LTV)": lambda x: fmt_pct(x*100, 1)
-                    }), use_container_width=True)
+                    }), use_container_width=True, height=table_height)
                 
                 st.markdown("""
                 <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
