@@ -344,7 +344,7 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# CALLBACK HELPERS & SMART DEFAULTS (BAUJAHR & OBJEKTART LOGIC)
+# CALLBACK HELPERS & RENT CALCULATIONS
 # -----------------------------------------------------------------------------
 def get_smart_defaults(baujahr, objektart):
     bj = int(baujahr) if baujahr else 2000
@@ -358,7 +358,6 @@ def get_smart_defaults(baujahr, objektart):
     else:
         category = "ETW"
         
-    # Instandhaltung (€/m²/Jahr)
     if age < 5:
         inst = 7.0 if category == "ETW" else (10.0 if category == "MFH" else 6.0)
     elif age <= 15:
@@ -368,7 +367,6 @@ def get_smart_defaults(baujahr, objektart):
     else:
         inst = 16.0 if category == "ETW" else (24.0 if category == "MFH" else 14.0)
         
-    # Verwaltung (€/Monat)
     if "Mikroapartment" in obj:
         mgt = 45.0
     elif category == "MFH":
@@ -378,7 +376,6 @@ def get_smart_defaults(baujahr, objektart):
     else:
         mgt = 30.0
         
-    # Leerstandsquote (% als float, z. B. 2.0 für 2%)
     if "Mikroapartment" in obj:
         vac = 4.0
     elif category == "GEWERBE":
@@ -400,6 +397,61 @@ def update_smart_defaults():
 def update_grwt_from_bundesland():
     bl = st.session_state.get("bundesland", "Niedersachsen")
     st.session_state["grwt_p"] = GRUNDERWERBSTEUER_MAP.get(bl, 0.05) * 100
+
+# Robust Callback functions for rent synchronizations
+def update_ist_from_monat():
+    qm = st.session_state.get("qm", 0.0)
+    monat = st.session_state.get("ist_miete_monat", 0.0)
+    if qm > 0:
+        st.session_state["ist_sqm"] = monat / qm
+    else:
+        st.session_state["ist_sqm"] = 0.0
+        
+    # Initial sync to target rent if target is still 0
+    if st.session_state.get("target_miete_monat", 0.0) == 0.0:
+        st.session_state["target_miete_monat"] = monat
+        if qm > 0:
+            st.session_state["target_sqm"] = monat / qm
+
+def update_ist_from_sqm():
+    qm = st.session_state.get("qm", 0.0)
+    sqm_val = st.session_state.get("ist_sqm", 0.0)
+    if qm > 0:
+        monat = sqm_val * qm
+        st.session_state["ist_miete_monat"] = monat
+    else:
+        st.session_state["ist_miete_monat"] = 0.0
+        
+    # Initial sync to target rent if target is still 0
+    if st.session_state.get("target_miete_monat", 0.0) == 0.0:
+        st.session_state["target_miete_monat"] = st.session_state.get("ist_miete_monat", 0.0)
+        st.session_state["target_sqm"] = sqm_val
+
+def update_target_from_monat():
+    qm = st.session_state.get("qm", 0.0)
+    monat = st.session_state.get("target_miete_monat", 0.0)
+    if qm > 0:
+        st.session_state["target_sqm"] = monat / qm
+    else:
+        st.session_state["target_sqm"] = 0.0
+
+def update_target_from_sqm():
+    qm = st.session_state.get("qm", 0.0)
+    sqm_val = st.session_state.get("target_sqm", 0.0)
+    if qm > 0:
+        st.session_state["target_miete_monat"] = sqm_val * qm
+    else:
+        st.session_state["target_miete_monat"] = 0.0
+
+def update_qm_callback():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0:
+        monat = st.session_state.get("ist_miete_monat", 0.0)
+        if monat > 0:
+            st.session_state["ist_sqm"] = monat / qm
+        t_monat = st.session_state.get("target_miete_monat", 0.0)
+        if t_monat > 0:
+            st.session_state["target_sqm"] = t_monat / qm
 
 # -----------------------------------------------------------------------------
 # SECRETS & HELPERS
@@ -770,7 +822,6 @@ for k, v in default_state.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ENFORCE DEFAULT PERCENTAGES & INITIAL SMART DEFAULTS IF NEEDED
 if st.session_state.get("notar_p", 0.0) == 0.0:
     st.session_state["notar_p"] = 2.00
 if st.session_state.get("makler_p", 0.0) == 0.0:
@@ -1035,17 +1086,16 @@ elif nav_choice == "Analyse":
                         if ai_data:
                             if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
                             if ai_data.get("wohnflaeche"): 
-                                qm_ai = float(ai_data["wohnflaeche"])
-                                st.session_state["qm"] = qm_ai
+                                st.session_state["qm"] = float(ai_data["wohnflaeche"])
                             if ai_data.get("baujahr"): 
                                 st.session_state["baujahr"] = int(ai_data["baujahr"])
                                 update_smart_defaults()
                             
+                            qm_val = st.session_state.get("qm", 0.0)
                             if ai_data.get("ist_miete_monat"):
                                 monat_val = float(ai_data["ist_miete_monat"])
                                 st.session_state["ist_miete_monat"] = monat_val
                                 st.session_state["target_miete_monat"] = monat_val
-                                qm_val = st.session_state.get("qm", 0.0)
                                 if qm_val > 0:
                                     st.session_state["ist_sqm"] = monat_val / qm_val
                                     st.session_state["target_sqm"] = monat_val / qm_val
@@ -1053,7 +1103,6 @@ elif nav_choice == "Analyse":
                                 sqm_val = float(ai_data["ist_miete_sqm"])
                                 st.session_state["ist_sqm"] = sqm_val
                                 st.session_state["target_sqm"] = sqm_val
-                                qm_val = st.session_state.get("qm", 0.0)
                                 if qm_val > 0:
                                     st.session_state["ist_miete_monat"] = sqm_val * qm_val
                                     st.session_state["target_miete_monat"] = sqm_val * qm_val
@@ -1086,51 +1135,15 @@ elif nav_choice == "Analyse":
             c_loc2.text_input("Stadtteil", key="stadtteil", placeholder="z. B. List")
             
             st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0, format="%.2f")
-            
-            # WOHNFLÄCHE & RENT SYNC LOGIC
-            old_qm = st.session_state.get("qm", 0.0)
-            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f")
-            
-            if qm_in != old_qm and qm_in > 0:
-                # Update IST Miete sqm based on monat if monat exists
-                if st.session_state.get("ist_miete_monat", 0.0) > 0:
-                    st.session_state["ist_sqm"] = st.session_state["ist_miete_monat"] / qm_in
-                elif st.session_state.get("ist_sqm", 0.0) > 0:
-                    st.session_state["ist_miete_monat"] = st.session_state["ist_sqm"] * qm_in
-                
-                # Update Target Miete sqm based on monat if monat exists
-                if st.session_state.get("target_miete_monat", 0.0) > 0:
-                    st.session_state["target_sqm"] = st.session_state["target_miete_monat"] / qm_in
-                elif st.session_state.get("target_sqm", 0.0) > 0:
-                    st.session_state["target_miete_monat"] = st.session_state["target_sqm"] * qm_in
-
+            st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f", on_change=update_qm_callback)
             st.number_input("Baujahr", key="baujahr", step=1, on_change=update_smart_defaults)
             
             st.markdown("---")
             st.markdown("**Mieteinnahmen (IST)**")
             col_m1, col_m2 = st.columns(2)
             
-            old_ist_monat = st.session_state.get("ist_miete_monat", 0.0)
-            old_ist_sqm = st.session_state.get("ist_sqm", 0.0)
-            
-            in_ist_monat = col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, format="%.2f")
-            in_ist_sqm = col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, format="%.2f")
-
-            # RECALCULATION & AUTO SYNC TO TARGET RENT IF TARGET WAS UNTOUCHED/EQUAL
-            if in_ist_monat != old_ist_monat and qm_in > 0:
-                calc_sqm = in_ist_monat / qm_in
-                st.session_state["ist_sqm"] = calc_sqm
-                if st.session_state.get("target_miete_monat", 0.0) == 0.0 or abs(st.session_state.get("target_miete_monat", 0.0) - old_ist_monat) < 1.0:
-                    st.session_state["target_miete_monat"] = in_ist_monat
-                    st.session_state["target_sqm"] = calc_sqm
-                st.rerun()
-            elif in_ist_sqm != old_ist_sqm and qm_in > 0:
-                calc_monat = in_ist_sqm * qm_in
-                st.session_state["ist_miete_monat"] = calc_monat
-                if st.session_state.get("target_sqm", 0.0) == 0.0 or abs(st.session_state.get("target_sqm", 0.0) - old_ist_sqm) < 0.01:
-                    st.session_state["target_miete_monat"] = calc_monat
-                    st.session_state["target_sqm"] = in_ist_sqm
-                st.rerun()
+            col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, format="%.2f", on_change=update_ist_from_monat)
+            col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, format="%.2f", on_change=update_ist_from_sqm)
 
             st.markdown("---")
             st.number_input(
@@ -1214,19 +1227,9 @@ elif nav_choice == "Analyse":
                 st.session_state["target_sqm"] = st.session_state["ist_sqm"]
                 st.session_state["target_miete_monat"] = st.session_state["ist_miete_monat"]
 
-            old_target_monat = st.session_state.get("target_miete_monat", 0.0)
-            old_target_sqm = st.session_state.get("target_sqm", 0.0)
-
             col_zt1, col_zt2 = st.columns(2)
-            in_target_monat = col_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f")
-            in_target_sqm = col_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f")
-
-            if in_target_monat != old_target_monat and qm_in > 0:
-                st.session_state["target_sqm"] = in_target_monat / qm_in
-                st.rerun()
-            elif in_target_sqm != old_target_sqm and qm_in > 0:
-                st.session_state["target_miete_monat"] = in_target_sqm * qm_in
-                st.rerun()
+            col_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=update_target_from_monat)
+            col_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f", on_change=update_target_from_sqm)
             
             st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der 10-Jahres-Projektion die Zielmiete erreicht werden soll.")
             
