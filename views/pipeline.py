@@ -90,8 +90,11 @@ def render_pipeline_view(sb_client):
             
             col_act1, col_act2 = st.columns(2)
             if col_act1.button("In Analyse-Rechner laden", type="primary", use_container_width=True):
+                # Alle gespeicherten Felder sauber in den Session State zurückschreiben
                 for k, v in p_target["input_data"].items():
                     st.session_state[k] = v
+                # Projektnamen explizit als Objektnamen wiederherstellen
+                st.session_state["obj_name"] = p_target.get("project_name", "")
                 st.session_state["nav_choice"] = "Analyse"
                 st.session_state["trigger_analysis"] = True
                 st.rerun()
