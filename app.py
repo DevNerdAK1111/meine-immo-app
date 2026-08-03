@@ -734,6 +734,15 @@ for k, v in default_state.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ENFORCE DEFAULT PERCENTAGES IF THEY ARE ZERO
+if st.session_state.get("notar_p", 0.0) == 0.0:
+    st.session_state["notar_p"] = 2.00
+if st.session_state.get("makler_p", 0.0) == 0.0:
+    st.session_state["makler_p"] = 3.57
+if st.session_state.get("grwt_p", 0.0) == 0.0:
+    bl = st.session_state.get("bundesland", "Niedersachsen")
+    st.session_state["grwt_p"] = GRUNDERWERBSTEUER_MAP.get(bl, 0.05) * 100
+
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
@@ -1069,8 +1078,8 @@ elif nav_choice == "Analyse":
             grwt_euro = kp_val * (grwt_val / 100)
             notar_euro = kp_val * (notar_val / 100)
             
-            c_nk1.markdown(f'<div class="nk-sub-badge">= {fmt_eur(grwt_euro)}</div>', unsafe_allow_html=True)
-            c_nk2.markdown(f'<div class="nk-sub-badge">= {fmt_eur(notar_euro)}</div>', unsafe_allow_html=True)
+            c_nk1.markdown(f'<div class="nk-sub-badge">{fmt_eur(grwt_euro)}</div>', unsafe_allow_html=True)
+            c_nk2.markdown(f'<div class="nk-sub-badge">{fmt_eur(notar_euro)}</div>', unsafe_allow_html=True)
 
             # ROW 2: MAKLER & SONSTIGE
             c_nk3, c_nk4 = st.columns(2)
@@ -1080,8 +1089,8 @@ elif nav_choice == "Analyse":
             makler_euro = kp_val * (makler_val / 100)
             tot_nebenkosten = grwt_euro + notar_euro + makler_euro + sonst_nk_val
             
-            c_nk3.markdown(f'<div class="nk-sub-badge">= {fmt_eur(makler_euro)}</div>', unsafe_allow_html=True)
-            c_nk4.markdown(f'<div class="nk-sub-badge">= {fmt_eur(sonst_nk_val)}</div>', unsafe_allow_html=True)
+            c_nk3.markdown(f'<div class="nk-sub-badge">{fmt_eur(makler_euro)}</div>', unsafe_allow_html=True)
+            c_nk4.markdown(f'<div class="nk-sub-badge">{fmt_eur(sonst_nk_val)}</div>', unsafe_allow_html=True)
 
             # SUMMARY BOX BELOW ALL 4 FIELDS
             st.markdown(f'<div class="nk-total-badge"><span>Summe Kaufnebenkosten:</span><span>{fmt_eur(tot_nebenkosten)}</span></div>', unsafe_allow_html=True)
