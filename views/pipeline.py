@@ -6,36 +6,22 @@ from core.helpers import fmt_eur, fmt_sqm, fmt_de, fmt_pct
 from core.database import db_get_projects, db_delete_project
 
 def render_pipeline_view(sb_client):
-    st.markdown("## Investment-Pipeline")
-    st.markdown("<p style='color:#555759;'>Übersicht aller gespeicherten Objekte (inkl. lokalem Backup).</p>", unsafe_allow_html=True)
+    st.markdown("## Objekt Datenbank")
+    st.markdown("<p style='color:#555759;'>Zentrale Verwaltung aller gespeicherten Immobilien-Objekte.</p>", unsafe_allow_html=True)
 
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
-    col_bk1, col_bk2 = st.columns(2)
-    if projects:
-        projects_json = json.dumps(projects, default=str, ensure_ascii=False, indent=2)
-        col_bk1.download_button(
-            label="📥 Projekte als Backup herunterladen (.json)",
-            data=projects_json,
-            file_name="valuon_estate_backup.json",
-            mime="application/json",
-            use_container_width=True
-        )
-    
-    uploaded_backup = col_bk2.file_uploader("📤 Backup wiederherstellen (.json)", type=["json"])
-    if uploaded_backup:
-        try:
-            imported_data = json.load(uploaded_backup)
-            if isinstance(imported_data, list):
-                if "local_projects" not in st.session_state:
-                    st.session_state["local_projects"] = []
-                for p in imported_data:
-                    if p not in st.session_state["local_projects"]:
-                        st.session_state["local_projects"].append(p)
-                st.success("Backup erfolgreich eingelesen!")
-                st.rerun()
-        except Exception as e:
-            st.error(f"Fehler beim Einlesen des Backups: {e}")
+    # Optionaler Export-Button für Backups bleibt diskret im Hintergrund
+    with st.expander("🛠️ Daten-Export / Backup", expanded=False):
+        if projects:
+            projects_json = json.dumps(projects, default=str, ensure_ascii=False, indent=2)
+            st.download_button(
+                label="📥 Alle Projekte als JSON-Backup herunterladen",
+                data=projects_json,
+                file_name="valuon_estate_backup.json",
+                mime="application/json",
+                use_container_width=True
+            )
 
     st.divider()
 
@@ -68,38 +54,54 @@ def render_pipeline_view(sb_client):
                 'grund_anteil': d.get("grund_anteil", 0.2)
             }, full_repayment=False)
             
-            loc = d.get("stadt", "")
-            if d.get("stadtteil"): loc += f" ({d.get('stadtteil')})"
-            if not loc: loc = d.get("bundesland", "Unbekannt")
+            stadt_str = d.get("stadt", "-")
+            if d.get("stadtteil"): 
+                stadt_str += f" ({d.get('stadtteil')})"
                 
             table_rows.append({
                 "Objektname": p["project_name"],
                 "Typ": d.get("objektart", "Eigentumswohnung"),
-                "Standort": loc,
+                "Stadt": stadt_str,
                 "Kaufpreis": fmt_eur(d.get('kaufpreis', 0)),
                 "Fläche": fmt_sqm(d.get('qm', 0)),
-                "Cashflow (netto)": f"{fmt_de(calc_p.loc[0, 'CF n. St.']/12, 2)} €/M",
-                "Bruttomietrendite": fmt_pct(calc_p.loc[0, 'Bruttomietrendite']*100),
+                "Netto-CF": f"{fmt_de(calc_p.loc[0, 'CF n. St.']/12, 0)} €/M",
+                "Rendite": fmt_pct(calc_p.loc[0, 'Bruttomietrendite']*100),
                 "10J-IRR": fmt_pct(irr_p*100)
             })
             
-        st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
+        df_display = pd.DataFrame(table_rows)
         
-        st.divider()
-        col_act1, col_act2 = st.columns(2)
-        selected_proj = col_act1.selectbox("Projekt auswählen", [p["project_name"] for p in projects])
+        st.markdown("💡 *Klicke direkt auf eine Zeile in der Tabelle, um das Objekt auszuwählen:*")
         
-        if col_act1.button("In Analyse-Rechner laden", type="primary", use_container_width=True):
-            p_target = next(p for p in projects if p["project_name"] == selected_proj)
-            for k, v in p_target["input_data"].items():
-                st.session_state[k] = v
-            st.session_state["nav_choice"] = "Analyse"
-            st.session_state["trigger_analysis"] = True
-            st.rerun()
+        # Interaktive Tabelle mit Zeilenauswahl (verhindert horizontales Scrollen durch saubere Spaltenbreiten)
+        event = st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            selection_mode="single-row",
+            on_select="rerun"
+        )
+        
+        selected_rows = event.selection.rows
+        
+        if selected_rows:
+            idx = selected_rows[0]
+            p_target = projects[idx]
+            
+            st.markdown(f"**Ausgewähltes Objekt:** `{p_target['project_name']}`")
+            
+            col_act1, col_act2 = st.columns(2)
+            if col_act1.button("🚀 In Analyse-Rechner laden", type="primary", use_container_width=True):
+                for k, v in p_target["input_data"].items():
+                    st.session_state[k] = v
+                st.session_state["nav_choice"] = "Analyse"
+                st.session_state["trigger_analysis"] = True
+                st.rerun()
 
-        if col_act2.button("Projekt löschen", use_container_width=True):
-            p_target = next(p for p in projects if p["project_name"] == selected_proj)
-            db_delete_project(sb_client, p_target["id"])
-            st.rerun()
+            if col_act2.button("🗑️ Projekt aus Datenbank löschen", use_container_width=True):
+                db_delete_project(sb_client, p_target["id"])
+                st.rerun()
+        else:
+            st.info("👆 Bitte klicke oben in der Tabelle auf ein Objekt, um es zu laden oder zu löschen.")
     else:
-        st.info("Bisher keine Projekte gespeichert.")
+        st.info("Bisher keine Objekte in der Datenbank gespeichert.")
