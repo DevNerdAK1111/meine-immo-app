@@ -398,7 +398,6 @@ def update_grwt_from_bundesland():
     bl = st.session_state.get("bundesland", "Niedersachsen")
     st.session_state["grwt_p"] = GRUNDERWERBSTEUER_MAP.get(bl, 0.05) * 100
 
-# Robust Callback functions for rent synchronizations
 def update_ist_from_monat():
     qm = st.session_state.get("qm", 0.0)
     monat = st.session_state.get("ist_miete_monat", 0.0)
@@ -407,8 +406,8 @@ def update_ist_from_monat():
     else:
         st.session_state["ist_sqm"] = 0.0
         
-    # Initial sync to target rent if target is still 0
-    if st.session_state.get("target_miete_monat", 0.0) == 0.0:
+    # Auto-sync target rent if auto_sync is enabled
+    if st.session_state.get("target_auto_sync", True):
         st.session_state["target_miete_monat"] = monat
         if qm > 0:
             st.session_state["target_sqm"] = monat / qm
@@ -422,8 +421,8 @@ def update_ist_from_sqm():
     else:
         st.session_state["ist_miete_monat"] = 0.0
         
-    # Initial sync to target rent if target is still 0
-    if st.session_state.get("target_miete_monat", 0.0) == 0.0:
+    # Auto-sync target rent if auto_sync is enabled
+    if st.session_state.get("target_auto_sync", True):
         st.session_state["target_miete_monat"] = st.session_state.get("ist_miete_monat", 0.0)
         st.session_state["target_sqm"] = sqm_val
 
@@ -434,6 +433,8 @@ def update_target_from_monat():
         st.session_state["target_sqm"] = monat / qm
     else:
         st.session_state["target_sqm"] = 0.0
+    # User explicitly edited target rent, disable auto-sync
+    st.session_state["target_auto_sync"] = False
 
 def update_target_from_sqm():
     qm = st.session_state.get("qm", 0.0)
@@ -442,6 +443,8 @@ def update_target_from_sqm():
         st.session_state["target_miete_monat"] = sqm_val * qm
     else:
         st.session_state["target_miete_monat"] = 0.0
+    # User explicitly edited target rent, disable auto-sync
+    st.session_state["target_auto_sync"] = False
 
 def update_qm_callback():
     qm = st.session_state.get("qm", 0.0)
@@ -449,9 +452,14 @@ def update_qm_callback():
         monat = st.session_state.get("ist_miete_monat", 0.0)
         if monat > 0:
             st.session_state["ist_sqm"] = monat / qm
-        t_monat = st.session_state.get("target_miete_monat", 0.0)
-        if t_monat > 0:
-            st.session_state["target_sqm"] = t_monat / qm
+        
+        if st.session_state.get("target_auto_sync", True):
+            st.session_state["target_miete_monat"] = monat
+            st.session_state["target_sqm"] = monat / qm if qm > 0 else 0.0
+        else:
+            t_monat = st.session_state.get("target_miete_monat", 0.0)
+            if t_monat > 0:
+                st.session_state["target_sqm"] = t_monat / qm
 
 # -----------------------------------------------------------------------------
 # SECRETS & HELPERS
@@ -803,6 +811,8 @@ if "nav_choice" not in st.session_state:
     st.session_state["nav_choice"] = "Pipeline"
 if "trigger_analysis" not in st.session_state:
     st.session_state["trigger_analysis"] = False
+if "target_auto_sync" not in st.session_state:
+    st.session_state["target_auto_sync"] = True
 
 default_state = {
     "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
@@ -921,6 +931,7 @@ if not st.session_state["authenticated"]:
             st.session_state["grwt_p"] = 5.0
             st.session_state["ek_euro"] = 0.0
             st.session_state["trigger_analysis"] = False
+            st.session_state["target_auto_sync"] = True
             st.rerun()
             
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1222,8 +1233,7 @@ elif nav_choice == "Analyse":
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
             st.markdown("**Zielmiete (Soll-Miete)**")
             
-            # Auto-initialize target if 0
-            if st.session_state.get("target_sqm", 0.0) == 0.0 and st.session_state.get("ist_sqm", 0.0) > 0:
+            if st.session_state.get("target_sqm", 0.0) == 0.0 and st.session_state.get("ist_sqm", 0.0) > 0 and st.session_state.get("target_auto_sync", True):
                 st.session_state["target_sqm"] = st.session_state["ist_sqm"]
                 st.session_state["target_miete_monat"] = st.session_state["ist_miete_monat"]
 
