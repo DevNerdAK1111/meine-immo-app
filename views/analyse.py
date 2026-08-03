@@ -18,7 +18,7 @@ from core.database import db_save_project
 def render_analyse_view(sb_client):
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
-        with st.expander("🤖 KI-gestützter Import (Beta)", expanded=False):
+        with st.expander("KI-gestützter Import (Beta)", expanded=False):
             active_api_key = get_gemini_api_key()
             import_type = st.radio("Quellformat wählen:", ["Web-Link (URL)", "PDF Exposé", "Text manuell"])
             extracted_text = ""
@@ -81,7 +81,7 @@ def render_analyse_view(sb_client):
             col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.5, format="%.2f", on_change=update_ist_from_sqm)
             st.markdown("---")
             st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0, format="%.2f")
-            with st.expander("⚙️ Hausgeld-Aufteilung", expanded=False):
+            with st.expander("Hausgeld-Aufteilung", expanded=False):
                 st.number_input("Davon nicht umlegbar (€/Monat)", key="hausgeld_nicht_umlegbar", step=5.0, format="%.2f")
             st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0, format="%.2f")
 
@@ -108,7 +108,7 @@ def render_analyse_view(sb_client):
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
             
-            with st.expander("🏛️ KfW-Darlehen (Optional)", expanded=False):
+            with st.expander("KfW-Darlehen (Optional)", expanded=False):
                 st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
                 ck1, ck2 = st.columns(2)
                 ck1.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
@@ -136,7 +136,7 @@ def render_analyse_view(sb_client):
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
 
         st.divider()
-        if st.button("🚀 Analyse starten / aktualisieren", type="primary", use_container_width=True):
+        if st.button("Analyse starten / aktualisieren", type="primary", use_container_width=True):
             st.session_state["trigger_analysis"] = True
             st.rerun()
 
@@ -171,13 +171,13 @@ def render_analyse_view(sb_client):
         <div class="valuon-placeholder">
             <h2 style="font-size: 1.6rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Berechnung ausführen</h2>
             <p style="font-size: 1.05rem; color: #555759; max-width: 620px; margin: 0 auto 15px auto;">
-                Tragen Sie Ihre Objektdaten ein und klicken Sie in der Seitenleiste auf <b>"🚀 Analyse starten"</b>.
+                Tragen Sie Ihre Objektdaten ein und klicken Sie in der Seitenleiste auf <b>"Analyse starten"</b>.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
         if st.session_state["kaufpreis"] <= 0 or st.session_state["qm"] <= 0 or st.session_state["ist_sqm"] <= 0:
-            st.error("⚠️ Bitte füllen Sie Kaufpreis, Wohnfläche und Miete aus.")
+            st.error("Bitte füllen Sie Kaufpreis, Wohnfläche und Miete aus.")
         else:
             col_hor1, _ = st.columns([2, 2])
             horizon_choice = col_hor1.selectbox("Projektionshorizont:", ["10 Jahre (Standard)", "Bis zur vollen Abzahlung des Darlehens (Volltilgung)"])
@@ -188,7 +188,7 @@ def render_analyse_view(sb_client):
             sanity_warnings = check_input_sanity(input_data)
             if sanity_warnings:
                 for w in sanity_warnings:
-                    st.warning(f"⚠️ **Plausibilitäts-Hinweis:** {w}")
+                    st.warning(f"Plausibilitäts-Hinweis: {w}")
 
             obj_name = st.session_state['obj_name'] or "Unbenanntes Objekt"
             col_t1, col_t2 = st.columns([3, 1])
