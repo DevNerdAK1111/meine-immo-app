@@ -658,25 +658,17 @@ def calc_projection(data, full_repayment=False):
     c_base = kp + san + nk_abs
     ek_euro_input = data.get('ek_euro', 0.0)
     
-    hb_share = data['hb_share']
     disagio_p = data['disagio_proz']
+    disagio_betrag = c_base * (1 - data.get('ek_quote', 0.20)) * disagio_p
     
-    denom = 1.0 - (hb_share * disagio_p)
-    if denom > 0 and ek_euro_input > 0:
-        tot_inv = (c_base - (ek_euro_input * hb_share * disagio_p)) / denom
-        tot_inv = max(tot_inv, c_base)
-        ek_abs = min(ek_euro_input, tot_inv)
-    else:
-        ek_quote = data.get('ek_quote', 0.20)
-        disagio_betrag = c_base * (1 - ek_quote) * hb_share * disagio_p
-        tot_inv = c_base + disagio_betrag
-        ek_abs = tot_inv * ek_quote
-        
+    tot_inv = c_base + disagio_betrag
+    ek_abs = min(ek_euro_input, tot_inv) if ek_euro_input > 0 else tot_inv * 0.20
+    
     ek_quote_calculated = (ek_abs / tot_inv) if tot_inv > 0 else 0.0
     fk_tot = max(0.0, tot_inv - ek_abs)
     
-    hb_loan = fk_tot * hb_share
     kfw_loan = max(0, data['kfw_amt'] - data['kfw_grant'])
+    hb_loan = max(0.0, fk_tot - kfw_loan)  # Hausbank fills the exact remaining gap intelligently
     
     afa_base = (kp + nk_abs) * (1 - data['grund_anteil'])
     
@@ -703,6 +695,8 @@ def calc_projection(data, full_repayment=False):
     
     yr = 1
     max_yr = 40 if full_repayment else 10
+    
+    building_book_value = afa_base
     
     while yr <= max_yr:
         if full_repayment and yr > 10 and restschuld_hb <= 0 and restschuld_kfw <= 0:
@@ -770,9 +764,10 @@ def calc_projection(data, full_repayment=False):
         
         cf_v_st = noi - zins_tot - tilg_tot
         
+        # CORRECTED AFA CALCULATION (DYNAMIC FOR DEGRESSIVE)
         if data['afa_model'] == "2_Degressiv_§7_5a":
-            afa_val = (afa_base - max(0, yr - 1) * (afa_base * 0.05)) * 0.05
-            afa_val = max(0, afa_val)
+            afa_val = building_book_value * 0.05
+            building_book_value = max(0.0, building_book_value - afa_val)
         elif data['afa_model'] == "3_Sonder_AfA_§7b":
             afa_val = (afa_base * 0.02) + (afa_base * 0.05 if yr <= 4 else 0)
         elif data['afa_model'] == "4_Denkmal_§7h_7i":
@@ -780,7 +775,7 @@ def calc_projection(data, full_repayment=False):
         else:
             afa_val = afa_base * data['afa_lin']
             
-        disagio_deduct = (tot_inv - ek_abs) * hb_share * disagio_p if yr == 1 else 0
+        disagio_deduct = disagio_betrag if yr == 1 else 0
         
         if yr == 1 and san <= (afa_base * 0.15):
             taxable_inc = noi - zins_tot - afa_val - disagio_deduct - san
@@ -862,7 +857,7 @@ default_state = {
     "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
     "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
-    "ek_euro": 0.0, "ek_quote": 0.20, "loan_type": "Annuitätendarlehen", "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
+    "ek_euro": 0.0, "ek_quote": 0.20, "loan_type": "Annuitätendarlehen", "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_miete_monat": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, 
     "vac_rate_pct": 2.0, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
@@ -1028,7 +1023,7 @@ if nav_choice == "Pipeline":
                 'disagio_proz': d.get("disagio_p", 0)/100, 'ek_euro': d.get("ek_euro", 0.0),
                 'ek_quote': d.get("ek_quote", 0.2),
                 'loan_type': d.get("loan_type", "Annuitätendarlehen"),
-                'hb_share': d.get("hb_share", 0.8), 'hb_zins': d.get("hb_zins", 3.8)/100,
+                'hb_zins': d.get("hb_zins", 3.8)/100,
                 'hb_tilg': d.get("hb_tilg", 2.0)/100, 'grace_years': d.get("grace_years", 0),
                 'kfw_amt': d.get("kfw_amt", 0), 'kfw_zins': d.get("kfw_zins", 2.1)/100,
                 'kfw_tilg': d.get("kfw_tilg", 3.0)/100, 'kfw_grace_years': d.get("kfw_grace_years", 0), 'kfw_grant': d.get("kfw_grant", 0),
@@ -1343,7 +1338,7 @@ elif nav_choice == "Analyse":
         'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
         'ek_quote': st.session_state["ek_quote"],
         'loan_type': st.session_state["loan_type"],
-        'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
+        'hb_zins': st.session_state["hb_zins"] / 100,
         'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
         'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"] / 100,
         'kfw_tilg': st.session_state["kfw_tilg"] / 100, 'kfw_grace_years': st.session_state["kfw_grace_years"], 'kfw_grant': st.session_state["kfw_grant"],
@@ -1388,7 +1383,6 @@ elif nav_choice == "Analyse":
             missing_str = ", ".join([f"<b>{f}</b>" for f in missing_fields])
             st.error(f"⚠️ Bitte vervollständigen Sie vor der Analyse folgende Pflichtfelder: {missing_str}")
         else:
-            # PROJECT HORIZON SELECTOR DROPDOWN RIGHT IN ANALYSIS VIEW
             col_hor1, col_hor2 = st.columns([2, 2])
             horizon_choice = col_hor1.selectbox(
                 "Projektionshorizont:",
@@ -1429,8 +1423,11 @@ elif nav_choice == "Analyse":
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
             val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100 if ek_abs > 0 else 0.0
-            hb_annu = fk_tot * (st.session_state["hb_share"]) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
-            kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
+            
+            kfw_amt_val = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])
+            hb_loan_val = max(0.0, fk_tot - kfw_amt_val)
+            hb_annu = hb_loan_val * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
+            kfw_annu = kfw_amt_val * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
             val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
 
             status_cf, label_cf = get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])
@@ -1525,7 +1522,7 @@ elif nav_choice == "Analyse":
                     st.markdown("### Kapitalstruktur")
                     fig_pie = px.pie(
                         names=['Eigenkapital', 'Hausbank', 'KfW'],
-                        values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
+                        values=[ek_abs, hb_loan_val, kfw_amt_val],
                         color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'],
                         hole=0.5
                     )
