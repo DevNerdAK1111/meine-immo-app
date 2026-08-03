@@ -268,13 +268,31 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    .ek-quote-badge {
+    /* Small Sub Badge for Individual Euro Amounts */
+    .nk-sub-badge {
+        background-color: #F4EFE6;
+        color: #555759;
+        border: 1px solid #D4C9B8;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+        margin-top: -6px;
+        margin-bottom: 10px;
+    }
+
+    /* Total Summary Badge */
+    .nk-total-badge {
         background-color: #F4EFE6;
         color: #13381A;
         border: 1px solid #D4C9B8;
         border-radius: 8px;
         padding: 10px 14px;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
         margin-top: 8px;
         margin-bottom: 12px;
     }
@@ -801,6 +819,9 @@ if not st.session_state["authenticated"]:
             st.session_state["ist_miete_monat"] = 0.0
             st.session_state["ist_sqm"] = 0.0
             st.session_state["target_sqm"] = 0.0
+            st.session_state["notar_p"] = 2.0
+            st.session_state["makler_p"] = 3.57
+            st.session_state["grwt_p"] = 5.0
             st.session_state["ek_euro"] = 0.0
             st.session_state["trigger_analysis"] = False
             st.rerun()
@@ -1016,7 +1037,6 @@ elif nav_choice == "Analyse":
             col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, format="%.2f", on_change=sync_rent_from_sqm)
 
             st.markdown("---")
-            # HINWEIS-FRAGEZEICHEN JETZT DIREKT AN DER OBERSTEN EBENE DES HAUSGELDS
             st.number_input(
                 "Hausgeld gesamt (€/Monat)", 
                 key="hausgeld", 
@@ -1040,43 +1060,31 @@ elif nav_choice == "Analyse":
         with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
             st.markdown("**Kaufnebenkosten**")
             
+            # ROW 1: GRUNDERWERBSTEUER & NOTAR
             c_nk1, c_nk2 = st.columns(2)
             grwt_val = c_nk1.number_input("1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
             notar_val = c_nk2.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1, format="%.2f")
             
+            kp_val = st.session_state["kaufpreis"]
+            grwt_euro = kp_val * (grwt_val / 100)
+            notar_euro = kp_val * (notar_val / 100)
+            
+            c_nk1.markdown(f'<div class="nk-sub-badge">= {fmt_eur(grwt_euro)}</div>', unsafe_allow_html=True)
+            c_nk2.markdown(f'<div class="nk-sub-badge">= {fmt_eur(notar_euro)}</div>', unsafe_allow_html=True)
+
+            # ROW 2: MAKLER & SONSTIGE
             c_nk3, c_nk4 = st.columns(2)
             makler_val = c_nk3.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1, format="%.2f")
             sonst_nk_val = c_nk4.number_input("4. Sonst. Nebenkosten (€)", key="sonst_nk", step=250.0, format="%.2f")
             
-            kp_val = st.session_state["kaufpreis"]
-            grwt_euro = kp_val * (grwt_val / 100)
-            notar_euro = kp_val * (notar_val / 100)
             makler_euro = kp_val * (makler_val / 100)
             tot_nebenkosten = grwt_euro + notar_euro + makler_euro + sonst_nk_val
             
-            # DIE GELBE BOX BEINHALTET NUN DIE EINZELNEN EURO-WERTE + DIE GESAMTSUMME
-            st.markdown(f"""
-            <div class="ek-quote-badge">
-                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
-                    <span>Grunderwerbsteuer ({fmt_pct(grwt_val)}):</span>
-                    <span>{fmt_eur(grwt_euro)}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
-                    <span>Notar & Grundbuch ({fmt_pct(notar_val)}):</span>
-                    <span>{fmt_eur(notar_euro)}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
-                    <span>Maklerprovision ({fmt_pct(makler_val)}):</span>
-                    <span>{fmt_eur(makler_euro)}</span>
-                </div>
-                {"<div style='display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;'><span>Sonstige Nebenkosten:</span><span>" + fmt_eur(sonst_nk_val) + "</span></div>" if sonst_nk_val > 0 else ""}
-                <hr style="margin: 6px 0; border: none; border-top: 1px dashed #D4C9B8;" />
-                <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; color: #13381A;">
-                    <span>Summe Kaufnebenkosten:</span>
-                    <span>{fmt_eur(tot_nebenkosten)}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            c_nk3.markdown(f'<div class="nk-sub-badge">= {fmt_eur(makler_euro)}</div>', unsafe_allow_html=True)
+            c_nk4.markdown(f'<div class="nk-sub-badge">= {fmt_eur(sonst_nk_val)}</div>', unsafe_allow_html=True)
+
+            # SUMMARY BOX BELOW ALL 4 FIELDS
+            st.markdown(f'<div class="nk-total-badge"><span>Summe Kaufnebenkosten:</span><span>{fmt_eur(tot_nebenkosten)}</span></div>', unsafe_allow_html=True)
             
             st.markdown("---")
             st.markdown("**Bank-Kredit & Zinsen**")
@@ -1093,7 +1101,6 @@ elif nav_choice == "Analyse":
                 st.number_input("KfW tilgungsfreie Jahre", key="kfw_grace_years", min_value=0, max_value=10, step=1)
 
             st.markdown("---")
-            # EIGENKAPITAL OHNE KLAMMERZUSATZ
             st.markdown("**Eigenkapital**")
             
             if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nebenkosten > 0:
