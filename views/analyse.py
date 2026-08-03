@@ -132,6 +132,7 @@ def render_analyse_view(sb_client):
         with st.expander("4. Steuern & Makro", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
+            st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f")
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
 
@@ -141,29 +142,57 @@ def render_analyse_view(sb_client):
             st.rerun()
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
+    
+    # 1. input_data speichert die sauberen UI-Werte (Prozentwerte wie 3.8, 2.0, etc.) für die Datenbank
     input_data = {
         'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
         'bundesland': st.session_state["bundesland"], 'stadt': st.session_state["stadt"], 'stadtteil': st.session_state["stadtteil"],
-        'objektart': st.session_state["objektart"], 'grwt_proz': st.session_state["grwt_p"]/100,
-        'notar_proz': st.session_state["notar_p"]/100, 'makler_proz': st.session_state["makler_p"]/100,
-        'sonst_nk': st.session_state["sonst_nk"], 'disagio_proz': st.session_state["disagio_p"]/100,
+        'objektart': st.session_state["objektart"], 'grwt_p': st.session_state["grwt_p"],
+        'notar_p': st.session_state["notar_p"], 'makler_p': st.session_state["makler_p"],
+        'sonst_nk': st.session_state["sonst_nk"], 'disagio_p': st.session_state["disagio_p"],
         'ek_euro': st.session_state["ek_euro"], 'ek_quote': st.session_state["ek_quote"],
-        'loan_type': st.session_state["loan_type"], 'hb_zins': st.session_state["hb_zins"]/100,
-        'hb_tilg': st.session_state["hb_tilg"]/100, 'grace_years': st.session_state["grace_years"],
-        'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"]/100,
-        'kfw_tilg': st.session_state["kfw_tilg"]/100, 'kfw_grace_years': st.session_state["kfw_grace_years"],
+        'loan_type': st.session_state["loan_type"], 'hb_zins': st.session_state["hb_zins"],
+        'hb_tilg': st.session_state["hb_tilg"], 'grace_years': st.session_state["grace_years"],
+        'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"],
+        'kfw_tilg': st.session_state["kfw_tilg"], 'kfw_grace_years': st.session_state["kfw_grace_years"],
         'kfw_grant': st.session_state["kfw_grant"], 'sondertilg': st.session_state["sondertilg"],
         'ist_sqm': st.session_state["ist_sqm"], 'target_sqm': target_sqm_resolved,
         'adj_year': st.session_state["adj_year"], 'park': st.session_state["park"],
-        'vac_rate': st.session_state["vac_rate_pct"]/100, 'qm': st.session_state["qm"],
+        'vac_rate_pct': st.session_state["vac_rate_pct"], 'qm': st.session_state["qm"],
         'hausgeld': st.session_state["hausgeld"], 'hausgeld_nicht_umlegbar': st.session_state["hausgeld_nicht_umlegbar"],
         'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
         'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
-        'tax_rate': st.session_state["tax_rate_pct"]/100, 'afa_model': st.session_state["afa_model"],
-        'afa_lin': st.session_state["afa_lin"]/100, 'miet_inc': st.session_state["miet_inc"]/100,
-        'cost_inc': st.session_state["cost_inc"]/100, 'val_inc': st.session_state["val_inc"]/100,
-        'wacc': st.session_state["wacc"]/100, 'exit_cost': st.session_state["exit_cost"]/100,
+        'tax_rate_pct': st.session_state["tax_rate_pct"], 'afa_model': st.session_state["afa_model"],
+        'afa_lin': st.session_state["afa_lin"], 'miet_inc': st.session_state["miet_inc"],
+        'cost_inc': st.session_state["cost_inc"], 'val_inc': st.session_state["val_inc"],
+        'wacc': st.session_state["wacc"], 'exit_cost': st.session_state["exit_cost"],
         'grund_anteil': st.session_state["grund_anteil"]
+    }
+
+    # 2. calc_data rechnet die Prozentwerte für die mathematischen Funktionen einmalig korrekt in Dezimalzahlen um
+    calc_data = {
+        'kaufpreis': input_data['kaufpreis'], 'sanierung': input_data['sanierung'],
+        'bundesland': input_data['bundesland'], 'stadt': input_data['stadt'], 'stadtteil': input_data['stadtteil'],
+        'objektart': input_data['objektart'], 'grwt_proz': input_data['grwt_p'] / 100,
+        'notar_proz': input_data['notar_p'] / 100, 'makler_proz': input_data['makler_p'] / 100,
+        'sonst_nk': input_data['sonst_nk'], 'disagio_proz': input_data['disagio_p'] / 100,
+        'ek_euro': input_data['ek_euro'], 'ek_quote': input_data['ek_quote'],
+        'loan_type': input_data['loan_type'], 'hb_zins': input_data['hb_zins'] / 100,
+        'hb_tilg': input_data['hb_tilg'] / 100, 'grace_years': input_data['grace_years'],
+        'kfw_amt': input_data['kfw_amt'], 'kfw_zins': input_data['kfw_zins'] / 100,
+        'kfw_tilg': input_data['kfw_tilg'] / 100, 'kfw_grace_years': input_data['kfw_grace_years'],
+        'kfw_grant': input_data['kfw_grant'], 'sondertilg': input_data['sondertilg'],
+        'ist_sqm': input_data['ist_sqm'], 'target_sqm': input_data['target_sqm'],
+        'adj_year': input_data['adj_year'], 'park': input_data['park'],
+        'vac_rate': input_data['vac_rate_pct'] / 100, 'qm': input_data['qm'],
+        'hausgeld': input_data['hausgeld'], 'hausgeld_nicht_umlegbar': input_data['hausgeld_nicht_umlegbar'],
+        'inst_sqm': input_data['inst_sqm'], 'mgt_monat': input_data['mgt_monat'],
+        'capex_j3': input_data['capex_j3'], 'capex_j6': input_data['capex_j6'],
+        'tax_rate': input_data['tax_rate_pct'] / 100, 'afa_model': input_data['afa_model'],
+        'afa_lin': input_data['afa_lin'] / 100, 'miet_inc': input_data['miet_inc'] / 100,
+        'cost_inc': input_data['cost_inc'] / 100, 'val_inc': input_data['val_inc'] / 100,
+        'wacc': input_data['wacc'] / 100, 'exit_cost': input_data['exit_cost'] / 100,
+        'grund_anteil': input_data['grund_anteil']
     }
 
     if not st.session_state.get("trigger_analysis", False):
@@ -183,9 +212,9 @@ def render_analyse_view(sb_client):
             horizon_choice = col_hor1.selectbox("Projektionshorizont:", ["10 Jahre (Standard)", "Bis zur vollen Abzahlung des Darlehens (Volltilgung)"])
             full_rep = ("Volltilgung" in horizon_choice)
 
-            df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_projection(input_data, full_repayment=full_rep)
+            df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_projection(calc_data, full_repayment=full_rep)
 
-            sanity_warnings = check_input_sanity(input_data)
+            sanity_warnings = check_input_sanity(calc_data)
             if sanity_warnings:
                 for w in sanity_warnings:
                     st.warning(f"Plausibilitäts-Hinweis: {w}")
@@ -196,7 +225,7 @@ def render_analyse_view(sb_client):
                 st.markdown(f"# {obj_name}")
                 st.caption(f"Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | EK: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
             with col_t2:
-                if st.button("In Cloud / lokal speichern", type="primary", use_container_width=True):
+                if st.button("In Cloud speichern", type="primary", use_container_width=True):
                     db_save_project(sb_client, st.session_state["user_email"], obj_name, input_data)
 
             strat = STRATEGIES[st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")]
