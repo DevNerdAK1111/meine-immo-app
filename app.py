@@ -647,7 +647,7 @@ def analyze_text_with_gemini(api_key, raw_text):
             st.error(f"Fehler bei der Datenextraktion: {err_msg}")
         return None
 
-def calc_10y_projection(data):
+def calc_projection(data, full_repayment=False):
     kp = data['kaufpreis']
     san = data['sanierung']
     
@@ -697,7 +697,17 @@ def calc_10y_projection(data):
         
     annual_nu_hausgeld = eff_nicht_umlegbar * 12
     
-    for yr in range(1, 11):
+    loan_type = data.get('loan_type', 'Annuitätendarlehen')
+    hb_initial_annuity = hb_loan * (data['hb_zins'] + data['hb_tilg']) if hb_loan > 0 else 0
+    kfw_initial_annuity = kfw_loan * (data['kfw_zins'] + data['kfw_tilg']) if kfw_loan > 0 else 0
+    
+    yr = 1
+    max_yr = 40 if full_repayment else 10
+    
+    while yr <= max_yr:
+        if full_repayment and yr > 10 and restschuld_hb <= 0 and restschuld_kfw <= 0:
+            break
+            
         if yr >= data['adj_year']:
             if yr == data['adj_year']:
                 current_sqm_rent = data['target_sqm']
@@ -716,20 +726,53 @@ def calc_10y_projection(data):
         
         noi = net_rent - op_costs - capex
         
-        zins_hb = restschuld_hb * data['hb_zins']
-        tilg_hb = (hb_loan * data['hb_tilg']) if yr > data['grace_years'] else 0
-        
-        zins_kfw = restschuld_kfw * data['kfw_zins'] if kfw_loan > 0 else 0
-        tilg_kfw = (kfw_loan * data['kfw_tilg']) if (kfw_loan > 0 and yr > data.get('kfw_grace_years', 0)) else 0
-        
+        # Hausbank Loan
+        zins_hb = restschuld_hb * data['hb_zins'] if restschuld_hb > 0 else 0.0
+        if restschuld_hb > 0:
+            if yr <= data['grace_years']:
+                tilg_hb = 0.0
+            else:
+                if loan_type == "Annuitätendarlehen":
+                    target_payment = hb_initial_annuity
+                    needed_tilg = target_payment - zins_hb
+                    tilg_hb = max(0.0, min(restschuld_hb, needed_tilg))
+                elif loan_type == "Tilgungsdarlehen":
+                    tilg_hb = hb_loan * data['hb_tilg']
+                    tilg_hb = min(restschuld_hb, tilg_hb)
+                else: # Endfälliges Darlehen
+                    tilg_hb = restschuld_hb if (yr == max_yr or (not full_repayment and yr == 10)) else 0.0
+        else:
+            zins_hb = 0.0
+            tilg_hb = 0.0
+            
+        # KfW Loan
+        zins_kfw = restschuld_kfw * data['kfw_zins'] if (kfw_loan > 0 and restschuld_kfw > 0) else 0.0
+        if kfw_loan > 0 and restschuld_kfw > 0:
+            kfw_grace = data.get('kfw_grace_years', 0)
+            if yr <= kfw_grace:
+                tilg_kfw = 0.0
+            else:
+                if loan_type == "Endfälliges Darlehen":
+                    tilg_kfw = restschuld_kfw if (yr == max_yr or (not full_repayment and yr == 10)) else 0.0
+                else:
+                    target_kfw_pay = kfw_initial_annuity
+                    needed_kfw_tilg = target_kfw_pay - zins_kfw
+                    tilg_kfw = max(0.0, min(restschuld_kfw, needed_kfw_tilg))
+        else:
+            zins_kfw = 0.0
+            tilg_kfw = 0.0
+            
         zins_tot = zins_hb + zins_kfw
-        tilg_tot = tilg_hb + tilg_kfw
-        sondertilg = data['sondertilg']
+        sondertilg = data['sondertilg'] if yr > data.get('grace_years', 0) else 0.0
+        actual_sondertilg = min(restschuld_hb, sondertilg) if restschuld_hb > 0 else 0.0
         
-        cf_v_st = noi - zins_tot - tilg_tot - sondertilg
+        tilg_tot = tilg_hb + tilg_kfw + actual_sondertilg
+        
+        cf_v_st = noi - zins_tot - tilg_tot
         
         if data['afa_model'] == "2_Degressiv_§7_5a":
-            afa_val = (afa_base - (yr - 1) * (afa_base * 0.05)) * 0.05
+            afa_val = (afa_base - max(0, yr - 1) * (afa_base * 0.05)) * 0.05
+            afa_val = max(0, afa_val)
         elif data['afa_model'] == "3_Sonder_AfA_§7b":
             afa_val = (afa_base * 0.02) + (afa_base * 0.05 if yr <= 4 else 0)
         elif data['afa_model'] == "4_Denkmal_§7h_7i":
@@ -747,8 +790,8 @@ def calc_10y_projection(data):
         tax_val = taxable_inc * data['tax_rate']
         cf_n_st = cf_v_st - tax_val
         
-        restschuld_hb = max(0, restschuld_hb - tilg_hb - sondertilg)
-        restschuld_rest = max(0, restschuld_kfw - tilg_kfw)
+        restschuld_hb = max(0.0, restschuld_hb - tilg_hb - actual_sondertilg)
+        restschuld_rest = max(0.0, restschuld_kfw - tilg_kfw)
         restschuld_tot = restschuld_hb + restschuld_rest
         
         obj_val *= (1 + data['val_inc'])
@@ -763,7 +806,7 @@ def calc_10y_projection(data):
             "Brutto-Kaltmiete": gross_rent,
             "NOI": noi,
             "Zinsen": zins_tot,
-            "Tilgung": tilg_tot + sondertilg,
+            "Tilgung": tilg_tot,
             "CF v. St.": cf_v_st,
             "AfA": afa_val,
             "Steuer": tax_val,
@@ -774,6 +817,10 @@ def calc_10y_projection(data):
             "LTV": ltv
         })
         
+        yr += 1
+        if not full_repayment and yr > 10:
+            break
+            
     df = pd.DataFrame(rows)
     
     cf_stream = [-ek_abs] + list(df['CF n. St.'].iloc[:-1]) + [df['CF n. St.'].iloc[-1] + (df['Objektwert'].iloc[-1] * (1 - data['exit_cost']) - df['Restschuld'].iloc[-1])]
@@ -815,7 +862,7 @@ default_state = {
     "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
     "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
-    "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
+    "ek_euro": 0.0, "ek_quote": 0.20, "loan_type": "Annuitätendarlehen", "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_miete_monat": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, 
     "vac_rate_pct": 2.0, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
@@ -868,7 +915,7 @@ if not st.session_state["authenticated"]:
         st.markdown("""
         <div class="valuon-card" style="margin-top: 15px;">
             <h3 style="margin-top:0; color:#13381A; font-size:1.1rem;">Präzision in jedem Deal</h3>
-            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Automatisierter Exposé-Abgleich via Gemini AI, granulare 10-Jahres-Projektionen und automatisierte Risikotests im zeitlosen Heritage-Design.</p>
+            <p style="color:#555759; font-size:0.95rem; margin-bottom:0;">Automatisierter Exposé-Abgleich via Gemini AI, granulare Projektionen und automatisierte Risikotests im zeitlosen Heritage-Design.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -876,7 +923,6 @@ if not st.session_state["authenticated"]:
         st.markdown("<div class='valuon-card'>", unsafe_allow_html=True)
         st.markdown("### Zugangsportal")
         
-        # PROMINENT DEVELOPER BUTTON FOR INSTANT UNINTERRUPTED ACCESS
         if st.button("🛠️ Als Entwickler einloggen (Permanenter Modus)", type="primary", use_container_width=True):
             st.session_state["authenticated"] = True
             st.session_state["user_email"] = "developer@valuon-estate.de"
@@ -973,7 +1019,7 @@ if nav_choice == "Pipeline":
         table_rows = []
         for p in projects:
             d = p["input_data"]
-            calc_p, _, ek_p, fk_p, irr_p, _, _ = calc_10y_projection({
+            calc_p, _, ek_p, fk_p, irr_p, _, _ = calc_projection({
                 'kaufpreis': d.get("kaufpreis", 0), 'sanierung': d.get("sanierung", 0),
                 'bundesland': d.get("bundesland", "Niedersachsen"),
                 'grwt_proz': d.get("grwt_p", 5.0)/100,
@@ -981,6 +1027,7 @@ if nav_choice == "Pipeline":
                 'makler_proz': d.get("makler_p", 3.57)/100, 'sonst_nk': d.get("sonst_nk", 0.0),
                 'disagio_proz': d.get("disagio_p", 0)/100, 'ek_euro': d.get("ek_euro", 0.0),
                 'ek_quote': d.get("ek_quote", 0.2),
+                'loan_type': d.get("loan_type", "Annuitätendarlehen"),
                 'hb_share': d.get("hb_share", 0.8), 'hb_zins': d.get("hb_zins", 3.8)/100,
                 'hb_tilg': d.get("hb_tilg", 2.0)/100, 'grace_years': d.get("grace_years", 0),
                 'kfw_amt': d.get("kfw_amt", 0), 'kfw_zins': d.get("kfw_zins", 2.1)/100,
@@ -998,7 +1045,7 @@ if nav_choice == "Pipeline":
                 'cost_inc': d.get("cost_inc", 2.0)/100, 'val_inc': d.get("val_inc", 1.5)/100,
                 'wacc': d.get("wacc", 6.0)/100, 'exit_cost': d.get("exit_cost", 2.0)/100,
                 'grund_anteil': d.get("grund_anteil", 0.2)
-            })
+            }, full_repayment=False)
             
             cf_m = calc_p.loc[0, 'CF n. St.'] / 12
             rendite = calc_p.loc[0, 'Bruttomietrendite'] * 100
@@ -1190,6 +1237,12 @@ elif nav_choice == "Analyse":
             
             st.markdown("---")
             st.markdown("**Bank-Kredit & Zinsen**")
+            st.selectbox(
+                "Darlehensart",
+                ["Annuitätendarlehen", "Tilgungsdarlehen", "Endfälliges Darlehen"],
+                key="loan_type",
+                help="Annuitätendarlehen: Konstanter Kapitaldienst mit steigendem Tilgungsanteil. Tilgungsdarlehen: Starre Tilgung in € mit sinkender Rate. Endfälliges Darlehen: Nur Zinsen während der Laufzeit."
+            )
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
@@ -1226,7 +1279,7 @@ elif nav_choice == "Analyse":
             col_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=update_target_from_monat)
             col_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f", on_change=update_target_from_sqm)
             
-            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der 10-Jahres-Projektion die Zielmiete erreicht werden soll.")
+            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der Projektion die Zielmiete erreicht werden soll.")
             
             st.markdown("---")
             
@@ -1289,6 +1342,7 @@ elif nav_choice == "Analyse":
         'notar_proz': st.session_state["notar_p"] / 100, 'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
         'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
         'ek_quote': st.session_state["ek_quote"],
+        'loan_type': st.session_state["loan_type"],
         'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
         'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
         'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"] / 100,
@@ -1334,7 +1388,16 @@ elif nav_choice == "Analyse":
             missing_str = ", ".join([f"<b>{f}</b>" for f in missing_fields])
             st.error(f"⚠️ Bitte vervollständigen Sie vor der Analyse folgende Pflichtfelder: {missing_str}")
         else:
-            df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_10y_projection(input_data)
+            # PROJECT HORIZON SELECTOR DROPDOWN RIGHT IN ANALYSIS VIEW
+            col_hor1, col_hor2 = st.columns([2, 2])
+            horizon_choice = col_hor1.selectbox(
+                "Projektionshorizont:",
+                ["10 Jahre (Standard)", "Bis zur vollen Abzahlung des Darlehens (Volltilgung)"],
+                key="horizon_choice"
+            )
+            full_rep = ("Volltilgung" in horizon_choice)
+
+            df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_projection(input_data, full_repayment=full_rep)
 
             sanity_warnings = check_input_sanity(input_data)
             if sanity_warnings:
@@ -1445,7 +1508,7 @@ elif nav_choice == "Analyse":
             </div>
             ''', unsafe_allow_html=True)
 
-            tab_dash, tab_plan = st.tabs(["Executive Dashboard", "10-Jahres-Modell"])
+            tab_dash, tab_plan = st.tabs(["Executive Dashboard", "Liquiditätsverlauf & Tilgung"])
 
             with tab_dash:
                 col_chart1, col_chart2 = st.columns([2, 1])
@@ -1470,7 +1533,7 @@ elif nav_choice == "Analyse":
                     st.plotly_chart(fig_pie, use_container_width=True)
 
             with tab_plan:
-                st.markdown("### Liquiditätsverlauf (10 Jahre)")
+                st.markdown(f"### Liquiditätsverlauf ({len(df_proj)} Jahre)")
                 st.dataframe(df_proj.style.format({
                     "Bruttomietrendite": lambda x: fmt_pct(x*100),
                     "Brutto-Kaltmiete": lambda x: fmt_eur(x),
