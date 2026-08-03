@@ -389,17 +389,17 @@ def render_analyse_view(sb_client):
                 
                 with sub_t1:
                     cols_1 = ["Jahr", "Mietrendite (brutto)", "Kaltmiete (brutto)", "Reinertrag (NOI)", "Cashflow (vor St.)", "Cashflow (nach St.)"]
-                    df_s1 = df_display[cols_1].set_index("Jahr").copy()
-                    df_s1.index.name = None
+                    df_s1 = df_display[cols_1].copy()
                     
                     tot_s1 = {
+                        "Jahr": "Summe",
                         "Mietrendite (brutto)": df_s1["Mietrendite (brutto)"].mean(),
                         "Kaltmiete (brutto)": df_s1["Kaltmiete (brutto)"].sum(),
                         "Reinertrag (NOI)": df_s1["Reinertrag (NOI)"].sum(),
                         "Cashflow (vor St.)": df_s1["Cashflow (vor St.)"].sum(),
                         "Cashflow (nach St.)": df_s1["Cashflow (nach St.)"].sum()
                     }
-                    df_s1.loc["Summe / Ø"] = tot_s1
+                    df_s1 = pd.concat([df_s1, pd.DataFrame([tot_s1])], ignore_index=True)
                     
                     st.dataframe(df_s1.style.format({
                         "Mietrendite (brutto)": lambda x: fmt_pct(x*100), 
@@ -407,21 +407,21 @@ def render_analyse_view(sb_client):
                         "Reinertrag (NOI)": lambda x: fmt_eur(x), 
                         "Cashflow (vor St.)": lambda x: fmt_eur(x), 
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True, height=table_height)
+                    }), use_container_width=True, hide_index=True, height=table_height)
                     
                 with sub_t2:
                     cols_2 = ["Jahr", "Zinsaufwand", "Tilgungsleistung", "Abschreibung (AfA)", "Einkommensteuer", "Cashflow (nach St.)"]
-                    df_s2 = df_display[cols_2].set_index("Jahr").copy()
-                    df_s2.index.name = None
+                    df_s2 = df_display[cols_2].copy()
                     
                     tot_s2 = {
+                        "Jahr": "Summe",
                         "Zinsaufwand": df_s2["Zinsaufwand"].sum(),
                         "Tilgungsleistung": df_s2["Tilgungsleistung"].sum(),
                         "Abschreibung (AfA)": df_s2["Abschreibung (AfA)"].sum(),
                         "Einkommensteuer": df_s2["Einkommensteuer"].sum(),
                         "Cashflow (nach St.)": df_s2["Cashflow (nach St.)"].sum()
                     }
-                    df_s2.loc["Summe"] = tot_s2
+                    df_s2 = pd.concat([df_s2, pd.DataFrame([tot_s2])], ignore_index=True)
                     
                     st.dataframe(df_s2.style.format({
                         "Zinsaufwand": lambda x: fmt_eur(x), 
@@ -429,19 +429,18 @@ def render_analyse_view(sb_client):
                         "Abschreibung (AfA)": lambda x: fmt_eur(x), 
                         "Einkommensteuer": lambda x: fmt_eur(x),
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True, height=table_height)
+                    }), use_container_width=True, hide_index=True, height=table_height)
                     
                 with sub_t3:
                     cols_3 = ["Jahr", "Restschuld", "Objektwert", "Netto-EK (NAV)", "Beleihungsauslauf (LTV)"]
-                    df_s3 = df_display[cols_3].set_index("Jahr").copy()
-                    df_s3.index.name = None
+                    df_s3 = df_display[cols_3].copy()
                     
                     st.dataframe(df_s3.style.format({
                         "Restschuld": lambda x: fmt_eur(x), 
                         "Objektwert": lambda x: fmt_eur(x),
                         "Netto-EK (NAV)": lambda x: fmt_eur(x), 
                         "Beleihungsauslauf (LTV)": lambda x: fmt_pct(x*100, 1)
-                    }), use_container_width=True, height=table_height)
+                    }), use_container_width=True, hide_index=True, height=table_height)
                 
                 st.markdown("""
                 <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
