@@ -277,7 +277,6 @@ def render_analyse_view(sb_client):
                     st.session_state["db_save_status"] = (success, msg)
                     st.rerun()
 
-            # Stilvolle Erfolgsmeldung im passenden Corporate Design
             if "db_save_status" in st.session_state:
                 success, msg = st.session_state["db_save_status"]
                 bg_color = "#EBF2EC" if success else "#FDF3F2"
@@ -308,13 +307,16 @@ def render_analyse_view(sb_client):
 
             tab_dash, tab_plan = st.tabs(["Executive Dashboard", "Liquiditätsverlauf & Tilgung"])
             with tab_dash:
-                col_chart1, col_chart2 = st.columns([2, 1])
+                st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+                col_chart1, col_chart2 = st.columns(2)
+                
                 with col_chart1:
+                    st.markdown("### Projektion & Wertentwicklung")
                     chart_mode = st.selectbox("Grafik-Ansicht wählen:", [
                         "1. Vermögensstruktur & NAV (Netto-Eigenkapital)",
                         "2. Cashflow-Entwicklung (Vor & Nach Steuern)",
                         "3. Kapitaldienst (Zins- & Tilgungsverlauf)"
-                    ], key="chart_mode_select", label_visibility="collapsed")
+                    ], key="chart_mode_select")
                     
                     fig = go.Figure()
                     if "1." in chart_mode:
@@ -331,21 +333,76 @@ def render_analyse_view(sb_client):
                         fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['Tilgung'], name="Tilgungsleistung", marker_color="#13381A", hovertemplate="<b>Jahr %{x}</b><br>Tilgung: %{y:,.0f} €<extra></extra>"))
                         fig.update_layout(barmode='stack')
 
-                    fig.update_layout(template="plotly_white", height=350, margin=dict(l=10, r=10, t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), yaxis=dict(tickformat=",.0f", ticksuffix=" €"))
+                    fig.update_layout(
+                        template="plotly_white", 
+                        height=380, 
+                        margin=dict(l=20, r=20, t=20, b=40), 
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5), 
+                        yaxis=dict(tickformat=",.0f", ticksuffix=" €")
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                     
                 with col_chart2:
-                    st.markdown("### Kapitalstruktur")
-                    fig_pie = px.pie(names=['Eigenkapital', 'Hausbank', 'KfW'], values=[ek_abs, hb_loan_val, kfw_amt_val], color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'], hole=0.5)
-                    fig_pie.update_traces(hovertemplate="<b>%{label}</b><br>Anteil: %{value:,.0f} € (%{percent})<extra></extra>")
-                    fig_pie.update_layout(height=390, margin=dict(l=10, r=10, t=10, b=10))
+                    st.markdown("### Kapitalstruktur (Initial)")
+                    # Exakter Abstandhalter zur Angleichung an die Selectbox auf der linken Seite
+                    st.markdown("<div style='height: 38px;'></div>", unsafe_allow_html=True)
+                    
+                    fig_pie = px.pie(
+                        names=['Eigenkapital', 'Hausbank-Darlehen', 'KfW-Darlehen'], 
+                        values=[ek_abs, hb_loan_val, kfw_amt_val], 
+                        color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'], 
+                        hole=0.6
+                    )
+                    fig_pie.update_traces(
+                        textposition='inside', 
+                        textinfo='percent+label',
+                        hovertemplate="<b>%{label}</b><br>Anteil: %{value:,.0f} € (%{percent})<extra></extra>"
+                    )
+                    fig_pie.update_layout(
+                        template="plotly_white",
+                        height=380, 
+                        margin=dict(l=20, r=20, t=20, b=40),
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5)
+                    )
                     st.plotly_chart(fig_pie, use_container_width=True)
 
             with tab_plan:
-                st.dataframe(df_proj.style.format({
-                    "Bruttomietrendite": lambda x: fmt_pct(x*100), "Brutto-Kaltmiete": lambda x: fmt_eur(x),
-                    "NOI": lambda x: fmt_eur(x), "Zinsen": lambda x: fmt_eur(x), "Tilgung": lambda x: fmt_eur(x),
-                    "CF v. St.": lambda x: fmt_eur(x), "AfA": lambda x: fmt_eur(x), "Steuer": lambda x: fmt_eur(x),
-                    "CF n. St.": lambda x: fmt_eur(x), "Restschuld": lambda x: fmt_eur(x), "Objektwert": lambda x: fmt_eur(x),
-                    "NAV": lambda x: fmt_eur(x), "LTV": lambda x: fmt_pct(x*100, 1)
+                st.markdown("### Liquiditätsverlauf, steuerliche Abschreibung & Kapitalentwicklung")
+                st.markdown("<p style='color:#555759; font-size: 0.9rem; margin-bottom: 15px;'>Detaillierte Übersicht aller Periodenwerte. Erklärungen der Fachbegriffe finden Sie unter der Tabelle.</p>", unsafe_allow_html=True)
+                
+                df_display = df_proj.rename(columns={
+                    "Bruttomietrendite": "Mietrendite (brutto)",
+                    "Brutto-Kaltmiete": "Kaltmiete (brutto)",
+                    "NOI": "Reinertrag (NOI)",
+                    "Zinsen": "Zinsaufwand",
+                    "Tilgung": "Tilgungsleistung",
+                    "CF v. St.": "Cashflow (vor St.)",
+                    "AfA": "Abschreibung (AfA)",
+                    "Steuer": "Einkommensteuer",
+                    "CF n. St.": "Cashflow (nach St.)",
+                    "Restschuld": "Restschuld",
+                    "Objektwert": "Objektwert",
+                    "NAV": "Netto-EK (NAV)",
+                    "LTV": "Beleihungsauslauf (LTV)"
+                })
+                
+                st.dataframe(df_display.style.format({
+                    "Mietrendite (brutto)": lambda x: fmt_pct(x*100), "Kaltmiete (brutto)": lambda x: fmt_eur(x),
+                    "Reinertrag (NOI)": lambda x: fmt_eur(x), "Zinsaufwand": lambda x: fmt_eur(x), "Tilgungsleistung": lambda x: fmt_eur(x),
+                    "Cashflow (vor St.)": lambda x: fmt_eur(x), "Abschreibung (AfA)": lambda x: fmt_eur(x), "Einkommensteuer": lambda x: fmt_eur(x),
+                    "Cashflow (nach St.)": lambda x: fmt_eur(x), "Restschuld": lambda x: fmt_eur(x), "Objektwert": lambda x: fmt_eur(x),
+                    "Netto-EK (NAV)": lambda x: fmt_eur(x), "Beleihungsauslauf (LTV)": lambda x: fmt_pct(x*100, 1)
                 }), use_container_width=True)
+                
+                st.markdown("""
+                <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
+                    <div style="font-weight: 700; color: #13381A; margin-bottom: 10px; font-size: 0.95rem;">Erläuterung der Kennzahlen & Fachbegriffe</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.85rem; color: #555759;">
+                        <div><b>Reinertrag (NOI - Net Operating Income):</b> Mietertrag nach Abzug aller Bewirtschaftungskosten und Leerstände, vor Zinsen und Steuern.</div>
+                        <div><b>Cashflow (vor/nach St.):</b> Liquiditätsüberschuss auf dem Konto vor bzw. nach Berücksichtigung der persönlichen Einkommensteuer.</div>
+                        <div><b>Abschreibung (AfA):</b> Steuerliche Abschreibung des Gebäude- und Sanierungswerts zur Senkung der Einkommensteuerlast.</div>
+                        <div><b>Netto-EK (NAV - Net Asset Value):</b> Tatsächlicher Netto-Eigenkapitalwert des Objekts (aktueller Marktwert minus verbleibende Restschuld).</div>
+                        <div><b>Beleihungsauslauf (LTV - Loan-to-Value):</b> Verhältnis der verbleibenden Restschuld zum aktuellen Marktwert des Objekts in Prozent.</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
