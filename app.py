@@ -796,7 +796,7 @@ with col_h2:
 
 st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
 
-nav_items = ["Pipeline", "Analyse", "Vergleich", "Kaufpreis", "Einstellungen"]
+nav_items = ["Pipeline", "Analyse", "Vergleich", "Kaufpreis", "Immobilienwissen", "Einstellungen"]
 nav_cols = st.columns(len(nav_items))
 
 for idx, item in enumerate(nav_items):
@@ -949,11 +949,13 @@ elif nav_choice == "Analyse":
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
             
+            # BUNDESLAND JETZT VOR STADT UND STADTTEIL
+            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+            
             c_loc1, c_loc2 = st.columns(2)
             c_loc1.text_input("Stadt", key="stadt", placeholder="z. B. Hannover")
             c_loc2.text_input("Stadtteil", key="stadtteil", placeholder="z. B. List")
             
-            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
             st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
             st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
             st.number_input("Baujahr", key="baujahr", step=1)
@@ -1245,31 +1247,6 @@ elif nav_choice == "Analyse":
                 "LTV": lambda x: fmt_pct(x*100, 1)
             }), use_container_width=True)
 
-        # VERSTECKTES MULTI-TAB CODE-SEGMENT (BLEIBT ERHALTEN)
-        if False:
-            tab_tax, tab_stress = st.tabs(["Steuer-Struktur", "Stresstest"])
-            
-            with tab_tax:
-                st.markdown("### Rechtsform-Vergleich (Privat vs. VV-GmbH)")
-                tot_taxable = df_proj['NOI'].sum() - df_proj['Zinsen'].sum() - df_proj['AfA'].sum()
-                tax_privat = tot_taxable * st.session_state["tax_rate"]
-                tax_gmbh = tot_taxable * 0.15825
-                c_t1, c_t2, c_t3 = st.columns(3)
-                c_t1.metric("Steuerlast Privat", fmt_eur(tax_privat))
-                c_t2.metric("Steuerlast VV-GmbH", fmt_eur(tax_gmbh))
-                c_t3.metric("Steuerdifferenz", fmt_eur(tax_privat - tax_gmbh))
-
-            with tab_stress:
-                st.markdown("### Zinsänderungsrisiko (Anschlussfinanzierung Jahr 11)")
-                restschuld_10 = df_proj.loc[9, 'Restschuld']
-                rates = [0.035, 0.045, 0.055, 0.065, 0.075]
-                refin_data = []
-                for r in rates:
-                    new_rate = (restschuld_10 * (r + (st.session_state["hb_tilg"] / 100))) / 12
-                    new_dscr = df_proj.loc[9, 'NOI'] / (new_rate * 12) if new_rate > 0 else 0
-                    refin_data.append({"Sollzins": fmt_pct(r*100, 1), "Monatliche Rate": fmt_eur(new_rate), "DSCR": fmt_de(new_dscr, 2)})
-                st.table(pd.DataFrame(refin_data))
-
 # =============================================================================
 # MODUL 3: DEAL-VERGLEICH
 # =============================================================================
@@ -1289,7 +1266,126 @@ elif nav_choice == "Kaufpreis":
     st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
 
 # =============================================================================
-# MODUL 5: EINSTELLUNGEN
+# MODUL 5: IMMOBILIENWISSEN (NEUES MODUL)
+# =============================================================================
+elif nav_choice == "Immobilienwissen":
+    st.markdown("## Immobilienwissen & Investment-Guide")
+    st.markdown("<p style='color:#555759;'>Fundiertes Know-how, Kennzahlen-Erklärungen und Schutz vor typischen Investor-Fehlern.</p>", unsafe_allow_html=True)
+
+    w_tab1, w_tab2, w_tab3 = st.tabs(["Indikatoren & KPIs", "Die 5 häufigsten Fehler", "Investment-Grundsätze"])
+
+    with w_tab1:
+        st.markdown("### Die wichtigsten Kennzahlen im Überblick")
+        
+        with st.expander("📌 Cashflow (netto nach Steuern)", expanded=True):
+            st.markdown("""
+            **Was ist das?**  
+            Der Netto-Cashflow ist das Geld, das am Monatsende nach Abzug *aller* Kosten (Verwaltung, Instandhaltung, Hausgeld, Zinsen, Tilgung und Einkommensteuer) auf deinem Konto übrig bleibt.
+
+            **Warum ist das wichtig?**  
+            Ein positiver Cashflow baut passives Vermögen auf, ohne dass du monatlich aus eigener Tasche dazuzahlen musst (*„Zuzahlungsimmobilie“*). 
+
+            * **Formel:** `Netto-Kaltmiete - Betriebskosten (nicht umlegbar) - Zins & Tilgung - Steuern`
+            * **Zielwert:** Mindestens **50 € bis 150 € / Monat** Überschuss je Wohneinheit.
+            """)
+
+        with st.expander("📌 Bruttomietrendite vs. Nettomietrendite"):
+            st.markdown("""
+            **Was ist das?**  
+            Die Rendite setzt den jährlichen Ertrag ins Verhältnis zum Kaufpreis bzw. zu den Gesamtkosten.
+
+            * **Bruttomietrendite:** Schnellcheck für Exposés.  
+              *(Jahreskaltmiete / Kaufpreis) × 100*
+            * **Nettomietrendite:** Viel genauer, da Kaufnebenkosten und Bewirtschaftung eingerechnet werden.  
+              *(Netto-Betriebseinkommen [NOI] / Gesamtinvestition) × 100*
+
+            **Wichtig:** Eine hohe Bruttomietrendite nutzt nichts, wenn das Hausgeld riesig ist oder hohe Instandhaltungskosten die Rendite auffressen!
+            """)
+
+        with st.expander("📌 DSCR (Debt Service Coverage Ratio / Schuldendienstdeckungsgrad)"):
+            st.markdown("""
+            **Was ist das?**  
+            Der DSCR zeigt, wie gut der Reinertrag des Objekts (NOI) den monatlichen Bankkredit (Zins + Tilgung) deckt.
+
+            **Richtwerte:**
+            * **Unter 1,0:** Der Ertrag reicht nicht aus, um den Kredit zu zahlen. (Risiko!)
+            * **1,0 bis 1,15:** Knappe Deckung, wenig Puffer bei Leerstand.
+            * **Ab 1,20 (Empfehlung):** Die Bank bewertet den Kredit als sicher, da 20 % Puffer für Unvorhergesehenes vorhanden sind.
+            """)
+
+        with st.expander("📌 Eigenkapitalrendite (Return on Equity - ROE)"):
+            st.markdown("""
+            **Was ist das?**  
+            Die Verzinsung des tatsächlich eingesetzten eigenen Geldes (Eigenkapital). Durch den **Leverage-Effekt** (Hebeln mit Bankguthaben) liegt die EK-Rendite oft deutlich über der Gesamtrendite des Objekts.
+
+            * **Formel:** *(Jährlicher Cashflow n. St. / Eingesetztes Eigenkapital) × 100*
+            * **Zielwert:** **8 % bis 15 %** p.a.
+            """)
+
+        with st.expander("📌 AfA (Absetzung für Abnutzung) & Denkmal-AfA"):
+            st.markdown("""
+            **Was ist das?**  
+            Der Gesetzgeber nimmt an, dass Gebäude mit der Zeit an Wert verlieren. Diesen Wertverlust darfst du steuerlich als Ausgaben geltend machen, obwohl du kein rechnerisches Geld ausgibst. Das senkt deine Steuerlast enorm.
+
+            * **Standard (Linear):** 2,0 % bis 3,0 % des Gebäudeanteils pro Jahr.
+            * **Degressiv (§ 7 Abs. 5a EStG):** 5,0 % auf den Restwert (für Neubauten ab 2023/2024).
+            * **Sonder-AfA (§ 7b EStG):** Zusätzliche Abschreibung für klimafreundlichen Mietwohnungsneubau.
+            """)
+
+    with w_tab2:
+        st.markdown("### Die 5 teuersten Anfängerfehler (und wie du sie vermeidest)")
+        
+        st.error("""
+        **Fehler 1: Hausgeld nicht in umlegbar & nicht umlegbar trennen**  
+        *Das Problem:* Anfänger ziehen oft das Gesamthausgeld von der Miete ab oder vergessen den Mieter-Anteil.  
+        *Die Lösung:* Nur der **nicht umlegbare Teil** (WEG-Verwalter + Instandhaltungsrücklage) ist eine echte Ausgabe für dich als Eigentümer! Der Rest geht 1:1 an den Mieter durch.
+        """)
+
+        st.warning("""
+        **Fehler 2: Die 15 %-Hürde bei der Sanierung (§ 6 Abs. 1 Nr. 1a EStG) ignorieren**  
+        *Das Problem:* Wer in den ersten 3 Jahren nach Kauf mehr als 15 % des Gebäude-Kaufpreises netto sanierte, muss diese Kosten über 33–50 Jahre langwierig abschreiben, statt sie sofort steuerlich abzusetzen.  
+        *Die Lösung:* Sanierungen zeitlich strecken oder unter der 15 %-Grenze halten!
+        """)
+
+        st.warning("""
+        **Fehler 3: Blindheit für die Bruttomietrendite**  
+        *Das Problem:* Eine Immobilie mit 8 % Rendite im strukturschwachen Dorf kaufen und sich über 50 % Leerstand und Mietnomaden wundern.  
+        *Die Lösung:* Lage und Mieterstruktur prüfen. Eine 4,5 %-Wohnung in einer wachsenden Universitätsstadt ist langfristig meist viel lukrativer.
+        """)
+
+        st.warning("""
+        **Fehler 4: Keinen Liquiditäts-Puffer auf dem Sparkonto haben**  
+        *Das Problem:* Nach dem Kauf ist das Girokonto auf 0 €. Die Heizung geht kaputt (3.000 € Sonderumlage) und man gerät in Verzug.  
+        *Die Lösung:* Neben dem Kaufpreis-Eigenkapital immer **mindestens 3–6 Monats-Kaltmieten** als Notgroschen zurückhalten.
+        """)
+
+        st.warning("""
+        **Fehler 5: Kaufnebenkosten aus dem Kredit finanzieren (110%-Finanzierung ohne Puffer)**  
+        *Das Problem:* Wer Makler, Notar und Grunderwerbsteuer komplett leiht, zahlt hohe Zinsaufschläge bei der Bank und trägt ein hohes Zinsänderungsrisiko.  
+        *Die Lösung:* Nebenkosten (ca. 8–12 %) idealerweise immer aus eigenem Ersparten zahlen.
+        """)
+
+    with w_tab3:
+        st.markdown("### Fundamentale Investment-Regeln")
+        
+        col_w1, col_w2 = st.columns(2)
+        with col_w1:
+            st.markdown("""
+            #### 1. Der Eigenkapital-Hebel (Leverage-Effekt)
+            Immobilien sind die einzige Anlageklasse, bei der dir Banken 80–90 % des Kapitals zu sehr niedrigen Zinsen leihen. 
+            
+            *Wenn deine Immobilie um 3 % an Wert steigt, steigt dein eingesetztes Eigenkapital durch den Hebel oft um 15–20 %!*
+            """)
+        with col_w2:
+            st.markdown("""
+            #### 2. Die 10-Jahres-Spekulationsfrist (§ 23 EStG)
+            Immobilien im Privatvermögen können nach einer Haltedauer von **10 Jahren komplett steuerfrei** verkauft werden. 
+            
+            *Der gesamte Wertzuwachs gehört zu 100 % dir – ohne Abzug von Kapitalertrag- oder Einkommensteuer.*
+            """)
+
+# =============================================================================
+# MODUL 6: EINSTELLUNGEN
 # =============================================================================
 elif nav_choice == "Einstellungen":
     st.markdown("## System & Konfiguration")
