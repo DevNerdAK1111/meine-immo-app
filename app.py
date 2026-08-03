@@ -1229,22 +1229,20 @@ elif nav_choice == "Analyse":
             st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der 10-Jahres-Projektion die Zielmiete erreicht werden soll.")
             
             st.markdown("---")
-            st.markdown("**Bewirtschaftung & Rücklagen**")
             
             curr_bj = st.session_state.get("baujahr", 2000)
             curr_obj = st.session_state.get("objektart", "Eigentumswohnung")
             curr_age = max(0, 2026 - curr_bj)
-            
-            # Calculation of defaults based on current state
             smart_inst, smart_mgt, smart_vac = get_smart_defaults(curr_bj, curr_obj)
             
-            st.info(f"""
-            💡 **Empfohlener Standard für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):**
-            * **Instandhaltungsrücklage:** **{fmt_de(smart_inst, 2)} €/m²/Jahr** *(berechnet nach Baualter & Typ)*
-            * **Verwaltungskosten:** **{fmt_eur(smart_mgt)}/Monat** *(Branchenstandard für {curr_obj})*
-            * **Leerstandsquote:** **{fmt_pct(smart_vac)}** *(statistischer Risikowert)*
-            *(Alle Felder unten sind frei anpassbar)*
-            """)
+            help_text_bw = f"""Empfohlener Standard für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):
+• Instandhaltungsrücklage: {fmt_de(smart_inst, 2)} €/m²/Jahr (berechnet nach Baualter & Typ)
+• Verwaltungskosten: {fmt_eur(smart_mgt)}/Monat (Branchenstandard)
+• Leerstandsquote: {fmt_pct(smart_vac)} (statistischer Risikowert)
+
+(Alle Werte unten können von dir frei überschrieben werden)"""
+
+            st.markdown("**Bewirtschaftung & Rücklagen**", help=help_text_bw)
 
             st.number_input(
                 "Instandhaltung (€/m²/Jahr)", 
