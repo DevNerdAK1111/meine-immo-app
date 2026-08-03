@@ -432,6 +432,7 @@ def analyze_text_with_gemini(api_key, raw_text):
             "kaufpreis": float,
             "wohnflaeche": float,
             "baujahr": int,
+            "ist_miete_monat": float,
             "ist_miete_sqm": float,
             "hausgeld_monat": float,
             "bundesland": string,
@@ -664,15 +665,17 @@ if "selected_strategy_name" not in st.session_state:
     st.session_state["selected_strategy_name"] = "Konservativ / Ausgewogen (Standard)"
 if "nav_choice" not in st.session_state:
     st.session_state["nav_choice"] = "Pipeline"
+if "trigger_analysis" not in st.session_state:
+    st.session_state["trigger_analysis"] = False
 
 default_state = {
     "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
     "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
-    "notar_p": 1.5, "makler_p": 3.57, "sonst_nk": 1000.0, "disagio_p": 0.0,
-    "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
+    "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
+    "ek_euro": None, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
-    "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
+    "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
     "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
     "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
     "tax_rate": 0.42, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
@@ -765,9 +768,11 @@ if not st.session_state["authenticated"]:
             st.session_state["kaufpreis"] = 0.0
             st.session_state["qm"] = 0.0
             st.session_state["obj_name"] = ""
+            st.session_state["ist_miete_monat"] = 0.0
             st.session_state["ist_sqm"] = 0.0
             st.session_state["target_sqm"] = 0.0
-            st.session_state["ek_euro"] = 0.0
+            st.session_state["ek_euro"] = None
+            st.session_state["trigger_analysis"] = False
             st.rerun()
             
         st.markdown("</div>", unsafe_allow_html=True)
@@ -792,6 +797,7 @@ with col_h2:
     if st.button("Abmelden", key="btn_logout", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["user_email"] = ""
+        st.session_state["trigger_analysis"] = False
         st.rerun()
 
 st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
@@ -825,8 +831,8 @@ if nav_choice == "Pipeline":
             d = p["input_data"]
             calc_p, _, ek_p, fk_p, irr_p, _, _ = calc_10y_projection({
                 'kaufpreis': d.get("kaufpreis", 0), 'sanierung': d.get("sanierung", 0),
-                'bundesland': d.get("bundesland", "Niedersachsen"), 'notar_proz': d.get("notar_p", 1.5)/100,
-                'makler_proz': d.get("makler_p", 3.57)/100, 'sonst_nk': d.get("sonst_nk", 1000),
+                'bundesland': d.get("bundesland", "Niedersachsen"), 'notar_proz': d.get("notar_p", 2.0)/100,
+                'makler_proz': d.get("makler_p", 3.57)/100, 'sonst_nk': d.get("sonst_nk", 0.0),
                 'disagio_proz': d.get("disagio_p", 0)/100, 'ek_euro': d.get("ek_euro", 0.0),
                 'ek_quote': d.get("ek_quote", 0.2),
                 'hb_share': d.get("hb_share", 0.8), 'hb_zins': d.get("hb_zins", 3.8)/100,
@@ -882,6 +888,7 @@ if nav_choice == "Pipeline":
             for k, v in p_target["input_data"].items():
                 st.session_state[k] = v
             st.session_state["nav_choice"] = "Analyse"
+            st.session_state["trigger_analysis"] = True
             st.rerun()
 
         if col_act2.button("Projekt löschen", use_container_width=True):
@@ -930,10 +937,18 @@ elif nav_choice == "Analyse":
                             if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
                             if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
                             if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
-                            if ai_data.get("ist_miete_sqm"): 
+                            
+                            if ai_data.get("ist_miete_monat"):
+                                st.session_state["ist_miete_monat"] = float(ai_data["ist_miete_monat"])
+                                if ai_data.get("wohnflaeche") and float(ai_data["wohnflaeche"]) > 0:
+                                    st.session_state["ist_sqm"] = float(ai_data["ist_miete_monat"]) / float(ai_data["wohnflaeche"])
+                            elif ai_data.get("ist_miete_sqm"): 
                                 st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
-                                st.session_state["target_sqm"] = float(ai_data["ist_miete_sqm"])
+                                if ai_data.get("wohnflaeche"):
+                                    st.session_state["ist_miete_monat"] = float(ai_data["ist_miete_sqm"]) * float(ai_data["wohnflaeche"])
+                                    
                             if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
+                            if ai_data.get("bundesland") and str(ai_data["bundesland"]) in GRUNDERWERBSTEUER_MAP: st.session_state["bundesland"] = str(ai_data["bundesland"])
                             if ai_data.get("stadt") and str(ai_data["stadt"]) != "Unbekannt": st.session_state["stadt"] = str(ai_data["stadt"])
                             if ai_data.get("stadtteil") and str(ai_data["stadtteil"]) != "Unbekannt": st.session_state["stadtteil"] = str(ai_data["stadtteil"])
                             if ai_data.get("objektart") and str(ai_data["objektart"]) in OBJEKTARTEN: st.session_state["objektart"] = str(ai_data["objektart"])
@@ -944,27 +959,49 @@ elif nav_choice == "Analyse":
         st.divider()
         st.markdown("### Parametrisierung")
         
-        # DIREKTE SEITENLEISTEN-EINGABEN
+        # 1. OBJEKTDATEN
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
             
-            # BUNDESLAND JETZT VOR STADT UND STADTTEIL
-            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+            # BUNDESLAND VOR STADT UND STADTTEIL
+            selected_bl = st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
             
             c_loc1, c_loc2 = st.columns(2)
             c_loc1.text_input("Stadt", key="stadt", placeholder="z. B. Hannover")
             c_loc2.text_input("Stadtteil", key="stadtteil", placeholder="z. B. List")
             
-            st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
-            st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
+            kp_in = st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
+            if kp_in > 0:
+                st.caption(f"💡 Kaufpreis: **{fmt_eur(kp_in)}**")
+                
+            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
             st.number_input("Baujahr", key="baujahr", step=1)
-            st.number_input("Ist-Kaltmiete (€/m²) *", key="ist_sqm", step=0.50)
             
+            # KALTMIETE FLEXIBEL (GESAMT ODER PRO SQM)
+            st.markdown("---")
+            st.markdown("**Mieteinnahmen (IST)**")
+            col_m1, col_m2 = st.columns(2)
+            
+            m_ges = col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0)
+            
+            # Automatische Umrechnung
+            if m_ges > 0 and qm_in > 0:
+                calculated_sqm_rent = m_ges / qm_in
+                st.session_state["ist_sqm"] = calculated_sqm_rent
+                
+            m_sqm = col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50)
+            if m_sqm > 0 and qm_in > 0 and m_ges == 0:
+                st.session_state["ist_miete_monat"] = m_sqm * qm_in
+
+            if st.session_state["ist_sqm"] > 0 and qm_in > 0:
+                total_kalt = st.session_state["ist_sqm"] * qm_in
+                st.caption(f"📊 Gesamt-Miete: **{fmt_eur(total_kalt)}/M** (**{fmt_de(st.session_state['ist_sqm'], 2)} €/m²**)")
+
+            st.markdown("---")
             # HAUPTFELD HAUSGELD
             st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0)
             
-            # UNTERGEORDNETE DETAILS ZUR HAUSGELD-AUFTEILUNG
             with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
                 st.number_input(
                     "Davon nicht umlegbar (€/Monat)", 
@@ -973,7 +1010,6 @@ elif nav_choice == "Analyse":
                     help="Eigentümer-Anteil (WEG-Verwaltung + Instandhaltungsrücklage). Falls 0,00 €, werden automatisch 25 % angesetzt."
                 )
 
-            # DYNAMISCHER HINWEIS ZUR AUFTEILUNG
             hg_tot = st.session_state.get("hausgeld", 0.0)
             hg_nu = st.session_state.get("hausgeld_nicht_umlegbar", 0.0)
             if hg_tot > 0:
@@ -987,37 +1023,59 @@ elif nav_choice == "Analyse":
 
             st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
 
+        # 2. FINANZIERUNG & NEBENKOSTEN
         with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
-            st.number_input("Eigenkapital (€)", key="ek_euro", step=5000.0)
+            grwt_rate = GRUNDERWERBSTEUER_MAP.get(st.session_state["bundesland"], 0.050)
+            grwt_euro = st.session_state["kaufpreis"] * grwt_rate
             
-            # LIVE BERECHNUNG & ANZEIGE DER EIGENKAPITALQUOTE
+            st.markdown(f"**1. Grunderwerbsteuer ({st.session_state['bundesland']}):** `{fmt_pct(grwt_rate*100)}` (**{fmt_eur(grwt_euro)}**)")
+            
+            c_nk1, c_nk2 = st.columns(2)
+            notar_val = c_nk1.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1)
+            makler_val = c_nk2.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1)
+            sonst_nk_val = st.number_input("4. Sonstige Nebenkosten (€)", key="sonst_nk", step=250.0)
+            
+            # AUTOMATISCHE KAUFNEBENKOSTEN-BERECHNUNG
             kp_val = st.session_state["kaufpreis"]
-            ek_val = st.session_state["ek_euro"]
-            est_nk = (kp_val * (GRUNDERWERBSTEUER_MAP.get(st.session_state["bundesland"], 0.05) + (st.session_state["notar_p"]/100) + (st.session_state["makler_p"]/100))) + st.session_state["sonst_nk"]
-            est_tot_inv = kp_val + est_nk + st.session_state["sanierung"]
-            calculated_quote = (ek_val / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
+            notar_euro = kp_val * (notar_val / 100)
+            makler_euro = kp_val * (makler_val / 100)
+            tot_nebenkosten = grwt_euro + notar_euro + makler_euro + sonst_nk_val
             
             st.markdown(f"""
             <div class="ek-quote-badge">
-                <span>Errechnete EK-Quote:</span>
-                <span style="color: #13381A; font-weight: 700;">{fmt_pct(calculated_quote)}</span>
+                <span>Summe Kaufnebenkosten:</span>
+                <span style="color: #13381A; font-weight: 700;">{fmt_eur(tot_nebenkosten)}</span>
             </div>
             """, unsafe_allow_html=True)
             
+            st.markdown("---")
+            st.markdown("**Bank-Kredit & Zinsen**")
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1)
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1)
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
-            st.number_input("Notar (%)", key="notar_p", step=0.1)
-            st.number_input("Makler (%)", key="makler_p", step=0.1)
-            st.number_input("Sonstige NK (€)", key="sonst_nk", step=250.0)
+            
             st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
             st.number_input("KfW Zins (%)", key="kfw_zins", step=0.1)
             st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1)
 
+            st.markdown("---")
+            # EIGENKAPITALFELD BEFINDET SICH JETZT AM ENDE
+            st.markdown("**Eigenkapital (100%-Finanzierungs-Richtwert)**")
+            
+            if st.session_state["ek_euro"] is None:
+                st.session_state["ek_euro"] = float(tot_nebenkosten)
+                
+            ek_input = st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0)
+            
+            est_tot_inv = kp_val + tot_nebenkosten + st.session_state["sanierung"]
+            calculated_quote = (ek_input / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
+            
+            st.caption(f"💡 Standardmäßig sind die Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital hinterlegt (100%-Finanzierung). Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
+
+        # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
             st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50)
             
-            # DYNAMISCHER HINWEIS: Verschwindet automatisch, sobald Ziel-Miete verändert wurde
             current_target = st.session_state.get("target_sqm", 0.0)
             current_ist = st.session_state.get("ist_sqm", 0.0)
             if current_target == 0.0 or current_target == current_ist:
@@ -1028,11 +1086,18 @@ elif nav_choice == "Analyse":
             st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0)
             st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate", step=0.01)
 
+        # 4. STEUERN & MAKRO
         with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1)
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1)
+
+        # BUTTON FÜR EXPLIZITEN START DER BERECHNUNG
+        st.divider()
+        if st.button("🚀 Analyse starten / aktualisieren", type="primary", use_container_width=True):
+            st.session_state["trigger_analysis"] = True
+            st.rerun()
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
 
@@ -1041,7 +1106,7 @@ elif nav_choice == "Analyse":
         'bundesland': st.session_state["bundesland"], 'stadt': st.session_state["stadt"], 'stadtteil': st.session_state["stadtteil"],
         'objektart': st.session_state["objektart"],
         'notar_proz': st.session_state["notar_p"] / 100, 'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
-        'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
+        'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"] if st.session_state["ek_euro"] is not None else 0.0,
         'ek_quote': st.session_state["ek_quote"],
         'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
         'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
@@ -1062,22 +1127,13 @@ elif nav_choice == "Analyse":
         'grund_anteil': st.session_state["grund_anteil"]
     }
 
-    # LOGIK-PRÜFUNG AUF PFLICHTFELDER
-    missing_fields = []
-    if st.session_state["kaufpreis"] <= 0:
-        missing_fields.append("Kaufpreis (€)")
-    if st.session_state["qm"] <= 0:
-        missing_fields.append("Wohnfläche (m²)")
-    if st.session_state["ist_sqm"] <= 0:
-        missing_fields.append("Ist-Kaltmiete (€/m²)")
-
-    if missing_fields:
-        missing_str = ", ".join([f"<b>{f}</b>" for f in missing_fields])
-        st.markdown(f"""
+    # BERECHNUNG ERST BEIM KLICK AUF DEN BUTTON ODER BEIM LADEN EINES PROJEKTS
+    if not st.session_state.get("trigger_analysis", False):
+        st.markdown("""
         <div class="valuon-placeholder">
-            <h2 style="font-size: 1.6rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Objektbewertung initialisieren</h2>
+            <h2 style="font-size: 1.6rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Berechnung ausführen</h2>
             <p style="font-size: 1.05rem; color: #555759; max-width: 620px; margin: 0 auto 15px auto;">
-                Bitte tragen Sie in der Seitenleiste noch folgende Pflichtfelder ein: {missing_str}.
+                Tragen Sie Ihre Objektdaten in der Seitenleiste ein und klicken Sie unten auf <b>"🚀 Analyse starten"</b>, um das Dashboard zu erzeugen.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -1086,166 +1142,173 @@ elif nav_choice == "Analyse":
             use_container_width=True
         )
     else:
-        df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_10y_projection(input_data)
+        missing_fields = []
+        if st.session_state["kaufpreis"] <= 0:
+            missing_fields.append("Kaufpreis (€)")
+        if st.session_state["qm"] <= 0:
+            missing_fields.append("Wohnfläche (m²)")
+        if st.session_state["ist_sqm"] <= 0:
+            missing_fields.append("Mieteinnahmen (€)")
 
-        # SANITY CHECKS & WARNINGS
-        sanity_warnings = check_input_sanity(input_data)
-        if sanity_warnings:
-            for w in sanity_warnings:
-                st.warning(f"⚠️ **Plausibilitäts-Hinweis:** {w}")
-
-        obj_display_name = st.session_state['obj_name'] if st.session_state['obj_name'] else "Unbenanntes Objekt"
-        
-        # STANDORT-STRING FÜR DEN HEADER FORMATIEREN
-        loc_str = st.session_state['stadt']
-        if st.session_state['stadtteil']:
-            loc_str += f" ({st.session_state['stadtteil']})"
-        if loc_str:
-            loc_str += f", {st.session_state['bundesland']}"
+        if missing_fields:
+            missing_str = ", ".join([f"<b>{f}</b>" for f in missing_fields])
+            st.error(f"⚠️ Bitte vervollständigen Sie vor der Analyse folgende Pflichtfelder: {missing_str}")
         else:
-            loc_str = st.session_state['bundesland']
+            df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_10y_projection(input_data)
 
-        col_t1, col_t2 = st.columns([3, 1])
-        with col_t1:
-            st.markdown(f"# {obj_display_name}")
-            st.caption(f"Typ: {st.session_state['objektart']} | Standort: {loc_str} | Fläche: {fmt_sqm(st.session_state['qm'])} | Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | Eigenkapital: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
-        with col_t2:
-            current_payload = {k: st.session_state[k] for k in default_state.keys()}
-            if sb_client and st.button("In Cloud speichern", type="primary", use_container_width=True):
-                db_save_project(sb_client, st.session_state["user_email"], obj_display_name, current_payload)
+            # SANITY CHECKS
+            sanity_warnings = check_input_sanity(input_data)
+            if sanity_warnings:
+                for w in sanity_warnings:
+                    st.warning(f"⚠️ **Plausibilitäts-Hinweis:** {w}")
 
-        strat_name = st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")
-        strat = STRATEGIES.get(strat_name, STRATEGIES["Konservativ / Ausgewogen (Standard)"])
-        
-        val_cf = df_proj.loc[0, 'CF n. St.'] / 12
-        val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
-        val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100 if ek_abs > 0 else 0.0
-        hb_annu = fk_tot * (st.session_state["hb_share"]) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
-        kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
-        val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
+            obj_display_name = st.session_state['obj_name'] if st.session_state['obj_name'] else "Unbenanntes Objekt"
+            
+            loc_str = st.session_state['stadt']
+            if st.session_state['stadtteil']:
+                loc_str += f" ({st.session_state['stadtteil']})"
+            if loc_str:
+                loc_str += f", {st.session_state['bundesland']}"
+            else:
+                loc_str = st.session_state['bundesland']
 
-        status_cf, label_cf = get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])
-        status_rendite, label_rendite = get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])
-        status_roe, label_roe = get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])
-        status_dscr, label_dscr = get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
+            col_t1, col_t2 = st.columns([3, 1])
+            with col_t1:
+                st.markdown(f"# {obj_display_name}")
+                st.caption(f"Typ: {st.session_state['objektart']} | Standort: {loc_str} | Fläche: {fmt_sqm(st.session_state['qm'])} | Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | Eigenkapital: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
+            with col_t2:
+                current_payload = {k: st.session_state[k] for k in default_state.keys()}
+                if sb_client and st.button("In Cloud speichern", type="primary", use_container_width=True):
+                    db_save_project(sb_client, st.session_state["user_email"], obj_display_name, current_payload)
 
-        # KPI CARDS WITH CUSTOM HOVER TOOLTIPS
-        c1, c2, c3, c4 = st.columns(4)
-        
-        c1.markdown(f'''
-        <div class="metric-card metric-{status_cf}">
-            <div class="metric-header">
-                <span class="metric-title">Cashflow (netto)</span>
-                <div class="tooltip-container">
-                    <span class="tooltip-icon">i</span>
-                    <div class="tooltip-box">
-                        <strong>Bedeutung & Relevanz</strong>
-                        Monatlicher Überschuss nach Abzug aller Bewirtschaftungskosten, Kreditraten (Zins & Tilgung) und Steuern.<br><br>
-                        <em>Warum entscheidend?</em> Sichert Ihre laufende Liquidität und verhindert ungewollte Nachzahlungen aus dem Privatvermögen.
+            strat_name = st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")
+            strat = STRATEGIES.get(strat_name, STRATEGIES["Konservativ / Ausgewogen (Standard)"])
+            
+            val_cf = df_proj.loc[0, 'CF n. St.'] / 12
+            val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
+            val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100 if ek_abs > 0 else 0.0
+            hb_annu = fk_tot * (st.session_state["hb_share"]) * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
+            kfw_annu = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"]) * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
+            val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
+
+            status_cf, label_cf = get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])
+            status_rendite, label_rendite = get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])
+            status_roe, label_roe = get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])
+            status_dscr, label_dscr = get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
+
+            # KPI CARDS
+            c1, c2, c3, c4 = st.columns(4)
+            
+            c1.markdown(f'''
+            <div class="metric-card metric-{status_cf}">
+                <div class="metric-header">
+                    <span class="metric-title">Cashflow (netto)</span>
+                    <div class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <div class="tooltip-box">
+                            <strong>Bedeutung & Relevanz</strong>
+                            Monatlicher Überschuss nach Abzug aller Bewirtschaftungskosten, Kreditraten (Zins & Tilgung) und Steuern.
+                        </div>
                     </div>
                 </div>
+                <div class="metric-value">{fmt_de(val_cf, 2)} €/M</div>
+                <div class="metric-status">{label_cf}</div>
             </div>
-            <div class="metric-value">{fmt_de(val_cf, 2)} €/M</div>
-            <div class="metric-status">{label_cf}</div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        c2.markdown(f'''
-        <div class="metric-card metric-{status_rendite}">
-            <div class="metric-header">
-                <span class="metric-title">Bruttomietrendite</span>
-                <div class="tooltip-container">
-                    <span class="tooltip-icon">i</span>
-                    <div class="tooltip-box">
-                        <strong>Bedeutung & Relevanz</strong>
-                        Verhältnis der jährlichen Bruttokaltmiete zum reinen Kaufpreis des Objekts.<br><br>
-                        <em>Warum entscheidend?</em> Erlaubt eine erste Standort- und Markt-Einschätzung, blendet jedoch Nebenkosten und Finanzierungsstruktur aus.
+            ''', unsafe_allow_html=True)
+            
+            c2.markdown(f'''
+            <div class="metric-card metric-{status_rendite}">
+                <div class="metric-header">
+                    <span class="metric-title">Bruttomietrendite</span>
+                    <div class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <div class="tooltip-box">
+                            <strong>Bedeutung & Relevanz</strong>
+                            Verhältnis der jährlichen Bruttokaltmiete zum reinen Kaufpreis des Objekts.
+                        </div>
                     </div>
                 </div>
+                <div class="metric-value">{fmt_pct(val_rendite)}</div>
+                <div class="metric-status">{label_rendite}</div>
             </div>
-            <div class="metric-value">{fmt_pct(val_rendite)}</div>
-            <div class="metric-status">{label_rendite}</div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        c3.markdown(f'''
-        <div class="metric-card metric-{status_roe}">
-            <div class="metric-header">
-                <span class="metric-title">Eigenkapitalrendite</span>
-                <div class="tooltip-container">
-                    <span class="tooltip-icon">i</span>
-                    <div class="tooltip-box">
-                        <strong>Bedeutung & Relevanz</strong>
-                        Prozentuale Verzinsung Ihres tatsächlich eingebrachten Eigenkapitals bezogen auf den Jahres-Cashflow.<br><br>
-                        <em>Warum entscheidend?</em> Zeigt die Effizienz Ihres Kapitals und macht den Hebeleffekt (Leverage-Effekt) der Bankfinanzierung sichtbar.
+            ''', unsafe_allow_html=True)
+            
+            c3.markdown(f'''
+            <div class="metric-card metric-{status_roe}">
+                <div class="metric-header">
+                    <span class="metric-title">Eigenkapitalrendite</span>
+                    <div class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <div class="tooltip-box">
+                            <strong>Bedeutung & Relevanz</strong>
+                            Prozentuale Verzinsung Ihres tatsächlich eingebrachten Eigenkapitals bezogen auf den Jahres-Cashflow.
+                        </div>
                     </div>
                 </div>
+                <div class="metric-value">{fmt_pct(val_roe)}</div>
+                <div class="metric-status">{label_roe}</div>
             </div>
-            <div class="metric-value">{fmt_pct(val_roe)}</div>
-            <div class="metric-status">{label_roe}</div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        c4.markdown(f'''
-        <div class="metric-card metric-{status_dscr}">
-            <div class="metric-header">
-                <span class="metric-title">DSCR Schuldendienst</span>
-                <div class="tooltip-container">
-                    <span class="tooltip-icon">i</span>
-                    <div class="tooltip-box">
-                        <strong>Bedeutung & Relevanz</strong>
-                        Debt Service Coverage Ratio: Verhältnis des Netto-Betriebseinkommens (NOI) zum jährlichen Schuldendienst (Zins + Tilgung).<br><br>
-                        <em>Warum entscheidend?</em> Die Key-Kennzahl für Banken. Ein Wert über 1,20 belegt ausreichend Puffer, um den Kredit auch bei Mietausfällen sicher zu bedienen.
+            ''', unsafe_allow_html=True)
+            
+            c4.markdown(f'''
+            <div class="metric-card metric-{status_dscr}">
+                <div class="metric-header">
+                    <span class="metric-title">DSCR Schuldendienst</span>
+                    <div class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <div class="tooltip-box">
+                            <strong>Bedeutung & Relevanz</strong>
+                            Debt Service Coverage Ratio: Verhältnis des Netto-Betriebseinkommens (NOI) zum jährlichen Schuldendienst.
+                        </div>
                     </div>
                 </div>
+                <div class="metric-value">{fmt_de(val_dscr, 2)}</div>
+                <div class="metric-status">{label_dscr}</div>
             </div>
-            <div class="metric-value">{fmt_de(val_dscr, 2)}</div>
-            <div class="metric-status">{label_dscr}</div>
-        </div>
-        ''', unsafe_allow_html=True)
+            ''', unsafe_allow_html=True)
 
-        # LAUNCH TABS
-        tab_dash, tab_plan = st.tabs(["Executive Dashboard", "10-Jahres-Modell"])
+            # TABS
+            tab_dash, tab_plan = st.tabs(["Executive Dashboard", "10-Jahres-Modell"])
 
-        with tab_dash:
-            col_chart1, col_chart2 = st.columns([2, 1])
-            with col_chart1:
-                st.markdown("### Vermögensentwicklung vs. Restschuld")
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#13381A", width=3)))
-                fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#A37841", width=3)))
-                fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital (NAV)", marker_color="#2B2D2F", opacity=0.2))
-                fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=10, b=10))
-                st.plotly_chart(fig, use_container_width=True)
-                
-            with col_chart2:
-                st.markdown("### Kapitalstruktur")
-                fig_pie = px.pie(
-                    names=['Eigenkapital', 'Hausbank', 'KfW'],
-                    values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
-                    color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'],
-                    hole=0.5
-                )
-                fig_pie.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
-                st.plotly_chart(fig_pie, use_container_width=True)
+            with tab_dash:
+                col_chart1, col_chart2 = st.columns([2, 1])
+                with col_chart1:
+                    st.markdown("### Vermögensentwicklung vs. Restschuld")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#13381A", width=3)))
+                    fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#A37841", width=3)))
+                    fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital (NAV)", marker_color="#2B2D2F", opacity=0.2))
+                    fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=10, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                with col_chart2:
+                    st.markdown("### Kapitalstruktur")
+                    fig_pie = px.pie(
+                        names=['Eigenkapital', 'Hausbank', 'KfW'],
+                        values=[ek_abs, fk_tot * st.session_state["hb_share"], max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])],
+                        color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'],
+                        hole=0.5
+                    )
+                    fig_pie.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
+                    st.plotly_chart(fig_pie, use_container_width=True)
 
-        with tab_plan:
-            st.markdown("### Liquiditätsverlauf (10 Jahre)")
-            st.dataframe(df_proj.style.format({
-                "Bruttomietrendite": lambda x: fmt_pct(x*100),
-                "Brutto-Kaltmiete": lambda x: fmt_eur(x),
-                "NOI": lambda x: fmt_eur(x),
-                "Zinsen": lambda x: fmt_eur(x),
-                "Tilgung": lambda x: fmt_eur(x),
-                "CF v. St.": lambda x: fmt_eur(x),
-                "AfA": lambda x: fmt_eur(x),
-                "Steuer": lambda x: fmt_eur(x),
-                "CF n. St.": lambda x: fmt_eur(x),
-                "Restschuld": lambda x: fmt_eur(x),
-                "Objektwert": lambda x: fmt_eur(x),
-                "NAV": lambda x: fmt_eur(x),
-                "LTV": lambda x: fmt_pct(x*100, 1)
-            }), use_container_width=True)
+            with tab_plan:
+                st.markdown("### Liquiditätsverlauf (10 Jahre)")
+                st.dataframe(df_proj.style.format({
+                    "Bruttomietrendite": lambda x: fmt_pct(x*100),
+                    "Brutto-Kaltmiete": lambda x: fmt_eur(x),
+                    "NOI": lambda x: fmt_eur(x),
+                    "Zinsen": lambda x: fmt_eur(x),
+                    "Tilgung": lambda x: fmt_eur(x),
+                    "CF v. St.": lambda x: fmt_eur(x),
+                    "AfA": lambda x: fmt_eur(x),
+                    "Steuer": lambda x: fmt_eur(x),
+                    "CF n. St.": lambda x: fmt_eur(x),
+                    "Restschuld": lambda x: fmt_eur(x),
+                    "Objektwert": lambda x: fmt_eur(x),
+                    "NAV": lambda x: fmt_eur(x),
+                    "LTV": lambda x: fmt_pct(x*100, 1)
+                }), use_container_width=True)
 
 # =============================================================================
 # MODUL 3: DEAL-VERGLEICH
@@ -1253,8 +1316,7 @@ elif nav_choice == "Analyse":
 elif nav_choice == "Vergleich":
     st.markdown("## Multi-Deal Vergleich")
     st.markdown("<p style='color:#555759;'>Parallele Gegenüberstellung mehrerer Investitionsvorhaben.</p>", unsafe_allow_html=True)
-    
-    st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
+    st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung.")
 
 # =============================================================================
 # MODUL 4: MAXIMALER KAUFPREIS
@@ -1262,11 +1324,10 @@ elif nav_choice == "Vergleich":
 elif nav_choice == "Kaufpreis":
     st.markdown("## Maximaler Kaufpreis-Rechner")
     st.markdown("<p style='color:#555759;'>Ermittlung der strategischen Gebots-Obergrenze.</p>", unsafe_allow_html=True)
-
-    st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
+    st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung.")
 
 # =============================================================================
-# MODUL 5: IMMOBILIENWISSEN (NEUES MODUL)
+# MODUL 5: IMMOBILIENWISSEN
 # =============================================================================
 elif nav_choice == "Immobilienwissen":
     st.markdown("## Immobilienwissen & Investment-Guide")
@@ -1298,71 +1359,29 @@ elif nav_choice == "Immobilienwissen":
               *(Jahreskaltmiete / Kaufpreis) × 100*
             * **Nettomietrendite:** Viel genauer, da Kaufnebenkosten und Bewirtschaftung eingerechnet werden.  
               *(Netto-Betriebseinkommen [NOI] / Gesamtinvestition) × 100*
-
-            **Wichtig:** Eine hohe Bruttomietrendite nutzt nichts, wenn das Hausgeld riesig ist oder hohe Instandhaltungskosten die Rendite auffressen!
             """)
 
-        with st.expander("📌 DSCR (Debt Service Coverage Ratio / Schuldendienstdeckungsgrad)"):
+        with st.expander("📌 DSCR (Debt Service Coverage Ratio)"):
             st.markdown("""
             **Was ist das?**  
             Der DSCR zeigt, wie gut der Reinertrag des Objekts (NOI) den monatlichen Bankkredit (Zins + Tilgung) deckt.
 
             **Richtwerte:**
-            * **Unter 1,0:** Der Ertrag reicht nicht aus, um den Kredit zu zahlen. (Risiko!)
-            * **1,0 bis 1,15:** Knappe Deckung, wenig Puffer bei Leerstand.
-            * **Ab 1,20 (Empfehlung):** Die Bank bewertet den Kredit als sicher, da 20 % Puffer für Unvorhergesehenes vorhanden sind.
-            """)
-
-        with st.expander("📌 Eigenkapitalrendite (Return on Equity - ROE)"):
-            st.markdown("""
-            **Was ist das?**  
-            Die Verzinsung des tatsächlich eingesetzten eigenen Geldes (Eigenkapital). Durch den **Leverage-Effekt** (Hebeln mit Bankguthaben) liegt die EK-Rendite oft deutlich über der Gesamtrendite des Objekts.
-
-            * **Formel:** *(Jährlicher Cashflow n. St. / Eingesetztes Eigenkapital) × 100*
-            * **Zielwert:** **8 % bis 15 %** p.a.
-            """)
-
-        with st.expander("📌 AfA (Absetzung für Abnutzung) & Denkmal-AfA"):
-            st.markdown("""
-            **Was ist das?**  
-            Der Gesetzgeber nimmt an, dass Gebäude mit der Zeit an Wert verlieren. Diesen Wertverlust darfst du steuerlich als Ausgaben geltend machen, obwohl du kein rechnerisches Geld ausgibst. Das senkt deine Steuerlast enorm.
-
-            * **Standard (Linear):** 2,0 % bis 3,0 % des Gebäudeanteils pro Jahr.
-            * **Degressiv (§ 7 Abs. 5a EStG):** 5,0 % auf den Restwert (für Neubauten ab 2023/2024).
-            * **Sonder-AfA (§ 7b EStG):** Zusätzliche Abschreibung für klimafreundlichen Mietwohnungsneubau.
+            * **Unter 1,0:** Der Ertrag reicht nicht aus, um den Kredit zu zahlen.
+            * **Ab 1,20 (Empfehlung):** Die Bank bewertet den Kredit als sicher (20 % Puffer).
             """)
 
     with w_tab2:
-        st.markdown("### Die 5 teuersten Anfängerfehler (und wie du sie vermeidest)")
+        st.markdown("### Die 5 teuersten Anfängerfehler")
         
         st.error("""
         **Fehler 1: Hausgeld nicht in umlegbar & nicht umlegbar trennen**  
-        *Das Problem:* Anfänger ziehen oft das Gesamthausgeld von der Miete ab oder vergessen den Mieter-Anteil.  
-        *Die Lösung:* Nur der **nicht umlegbare Teil** (WEG-Verwalter + Instandhaltungsrücklage) ist eine echte Ausgabe für dich als Eigentümer! Der Rest geht 1:1 an den Mieter durch.
+        Nur der **nicht umlegbare Teil** (WEG-Verwalter + Instandhaltungsrücklage) ist eine echte Ausgabe für dich als Eigentümer!
         """)
 
         st.warning("""
         **Fehler 2: Die 15 %-Hürde bei der Sanierung (§ 6 Abs. 1 Nr. 1a EStG) ignorieren**  
-        *Das Problem:* Wer in den ersten 3 Jahren nach Kauf mehr als 15 % des Gebäude-Kaufpreises netto sanierte, muss diese Kosten über 33–50 Jahre langwierig abschreiben, statt sie sofort steuerlich abzusetzen.  
-        *Die Lösung:* Sanierungen zeitlich strecken oder unter der 15 %-Grenze halten!
-        """)
-
-        st.warning("""
-        **Fehler 3: Blindheit für die Bruttomietrendite**  
-        *Das Problem:* Eine Immobilie mit 8 % Rendite im strukturschwachen Dorf kaufen und sich über 50 % Leerstand und Mietnomaden wundern.  
-        *Die Lösung:* Lage und Mieterstruktur prüfen. Eine 4,5 %-Wohnung in einer wachsenden Universitätsstadt ist langfristig meist viel lukrativer.
-        """)
-
-        st.warning("""
-        **Fehler 4: Keinen Liquiditäts-Puffer auf dem Sparkonto haben**  
-        *Das Problem:* Nach dem Kauf ist das Girokonto auf 0 €. Die Heizung geht kaputt (3.000 € Sonderumlage) und man gerät in Verzug.  
-        *Die Lösung:* Neben dem Kaufpreis-Eigenkapital immer **mindestens 3–6 Monats-Kaltmieten** als Notgroschen zurückhalten.
-        """)
-
-        st.warning("""
-        **Fehler 5: Kaufnebenkosten aus dem Kredit finanzieren (110%-Finanzierung ohne Puffer)**  
-        *Das Problem:* Wer Makler, Notar und Grunderwerbsteuer komplett leiht, zahlt hohe Zinsaufschläge bei der Bank und trägt ein hohes Zinsänderungsrisiko.  
-        *Die Lösung:* Nebenkosten (ca. 8–12 %) idealerweise immer aus eigenem Ersparten zahlen.
+        Wer in den ersten 3 Jahren nach Kauf mehr als 15 % des Gebäude-Kaufpreises netto sanierte, muss diese Kosten über 33–50 Jahre langwierig abschreiben.
         """)
 
     with w_tab3:
@@ -1372,16 +1391,12 @@ elif nav_choice == "Immobilienwissen":
         with col_w1:
             st.markdown("""
             #### 1. Der Eigenkapital-Hebel (Leverage-Effekt)
-            Immobilien sind die einzige Anlageklasse, bei der dir Banken 80–90 % des Kapitals zu sehr niedrigen Zinsen leihen. 
-            
-            *Wenn deine Immobilie um 3 % an Wert steigt, steigt dein eingesetztes Eigenkapital durch den Hebel oft um 15–20 %!*
+            Immobilien sind die einzige Anlageklasse, bei der dir Banken 80–90 % des Kapitals zu sehr niedrigen Zinsen leihen.
             """)
         with col_w2:
             st.markdown("""
             #### 2. Die 10-Jahres-Spekulationsfrist (§ 23 EStG)
-            Immobilien im Privatvermögen können nach einer Haltedauer von **10 Jahren komplett steuerfrei** verkauft werden. 
-            
-            *Der gesamte Wertzuwachs gehört zu 100 % dir – ohne Abzug von Kapitalertrag- oder Einkommensteuer.*
+            Immobilien im Privatvermögen können nach einer Haltedauer von **10 Jahren komplett steuerfrei** verkauft werden.
             """)
 
 # =============================================================================
