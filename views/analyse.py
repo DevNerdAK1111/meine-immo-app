@@ -352,7 +352,6 @@ def render_analyse_view(sb_client):
                         color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'], 
                         hole=0.6
                     )
-                    # Ohne direkte Beschriftung im Kreis, dafür sauber über die Legende und den Hover-Effekt
                     fig_pie.update_traces(
                         hovertemplate="<b>%{label}</b><br>Anteil: %{value:,.0f} € (%{percent})<extra></extra>"
                     )
@@ -384,12 +383,22 @@ def render_analyse_view(sb_client):
                     "LTV": "Beleihungsauslauf (LTV)"
                 })
                 
-                # Unterteilung in thematische Tabs, um horizontales Scrollen komplett zu eliminieren
                 sub_t1, sub_t2, sub_t3 = st.tabs(["Mieten & Cashflow", "Kapitaldienst & Steuern", "Vermögen & Bilanz"])
                 
                 with sub_t1:
                     cols_1 = ["Jahr", "Mietrendite (brutto)", "Kaltmiete (brutto)", "Reinertrag (NOI)", "Cashflow (vor St.)", "Cashflow (nach St.)"]
-                    st.dataframe(df_display[cols_1].style.format({
+                    df_s1 = df_display[cols_1].set_index("Jahr").copy()
+                    
+                    tot_s1 = {
+                        "Mietrendite (brutto)": df_s1["Mietrendite (brutto)"].mean(),
+                        "Kaltmiete (brutto)": df_s1["Kaltmiete (brutto)"].sum(),
+                        "Reinertrag (NOI)": df_s1["Reinertrag (NOI)"].sum(),
+                        "Cashflow (vor St.)": df_s1["Cashflow (vor St.)"].sum(),
+                        "Cashflow (nach St.)": df_s1["Cashflow (nach St.)"].sum()
+                    }
+                    df_s1.loc["Gesamt / Ø"] = tot_s1
+                    
+                    st.dataframe(df_s1.style.format({
                         "Mietrendite (brutto)": lambda x: fmt_pct(x*100), 
                         "Kaltmiete (brutto)": lambda x: fmt_eur(x),
                         "Reinertrag (NOI)": lambda x: fmt_eur(x), 
@@ -399,7 +408,18 @@ def render_analyse_view(sb_client):
                     
                 with sub_t2:
                     cols_2 = ["Jahr", "Zinsaufwand", "Tilgungsleistung", "Abschreibung (AfA)", "Einkommensteuer", "Cashflow (nach St.)"]
-                    st.dataframe(df_display[cols_2].style.format({
+                    df_s2 = df_display[cols_2].set_index("Jahr").copy()
+                    
+                    tot_s2 = {
+                        "Zinsaufwand": df_s2["Zinsaufwand"].sum(),
+                        "Tilgungsleistung": df_s2["Tilgungsleistung"].sum(),
+                        "Abschreibung (AfA)": df_s2["Abschreibung (AfA)"].sum(),
+                        "Einkommensteuer": df_s2["Einkommensteuer"].sum(),
+                        "Cashflow (nach St.)": df_s2["Cashflow (nach St.)"].sum()
+                    }
+                    df_s2.loc["Gesamt"] = tot_s2
+                    
+                    st.dataframe(df_s2.style.format({
                         "Zinsaufwand": lambda x: fmt_eur(x), 
                         "Tilgungsleistung": lambda x: fmt_eur(x),
                         "Abschreibung (AfA)": lambda x: fmt_eur(x), 
@@ -409,7 +429,17 @@ def render_analyse_view(sb_client):
                     
                 with sub_t3:
                     cols_3 = ["Jahr", "Restschuld", "Objektwert", "Netto-EK (NAV)", "Beleihungsauslauf (LTV)"]
-                    st.dataframe(df_display[cols_3].style.format({
+                    df_s3 = df_display[cols_3].set_index("Jahr").copy()
+                    
+                    tot_s3 = {
+                        "Restschuld": df_s3["Restschuld"].mean(),
+                        "Objektwert": df_s3["Objektwert"].mean(),
+                        "Netto-EK (NAV)": df_s3["Netto-EK (NAV)"].mean(),
+                        "Beleihungsauslauf (LTV)": df_s3["Beleihungsauslauf (LTV)"].mean()
+                    }
+                    df_s3.loc["Durchschnitt"] = tot_s3
+                    
+                    st.dataframe(df_s3.style.format({
                         "Restschuld": lambda x: fmt_eur(x), 
                         "Objektwert": lambda x: fmt_eur(x),
                         "Netto-EK (NAV)": lambda x: fmt_eur(x), 
