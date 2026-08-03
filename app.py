@@ -373,8 +373,8 @@ def check_input_sanity(d: dict) -> list:
         warnings.append(f"Erwartete Wertsteigerung ({fmt_pct(d['val_inc']*100)} p.a.) ist sehr hoch.")
     if d['tax_rate'] > 0.50:
         warnings.append(f"Grenzsteuersatz ({fmt_pct(d['tax_rate']*100)}) liegt über dem Höchstsatz.")
-    if d['hausgeld'] > 0 and d['qm'] > 0 and (d['hausgeld'] / d['qm']) > 30.0:
-        warnings.append(f"Hausgeld pro m² ({fmt_eur(d['hausgeld']/d['qm'], 2)}/m²) ist ungewöhnlich hoch.")
+    if d['hausgeld'] > 0 and d['hausgeld_nicht_umlegbar'] > d['hausgeld']:
+        warnings.append("Das nicht umlegbare Hausgeld darf nicht größer sein als das Gesamthausgeld.")
     return warnings
 
 # -----------------------------------------------------------------------------
@@ -529,6 +529,17 @@ def calc_10y_projection(data):
     
     current_sqm_rent = data['ist_sqm']
     
+    # HAUSGELD AUFTEILUNGS-LOGIK (EXPERIENZ-ANNAHME: 25% Nicht-Umlegbar falls 0 angegeben)
+    hausgeld_tot = data['hausgeld']
+    hausgeld_nu = data.get('hausgeld_nicht_umlegbar', 0.0)
+    
+    if hausgeld_tot > 0 and hausgeld_nu <= 0:
+        eff_nicht_umlegbar = hausgeld_tot * 0.25
+    else:
+        eff_nicht_umlegbar = hausgeld_nu
+        
+    annual_nu_hausgeld = eff_nicht_umlegbar * 12
+    
     for yr in range(1, 11):
         if yr >= data['adj_year']:
             if yr == data['adj_year']:
@@ -540,7 +551,8 @@ def calc_10y_projection(data):
         vacancy = gross_rent * data['vac_rate']
         net_rent = gross_rent - vacancy
         
-        op_costs = ((data['hausgeld'] * 12) + (data['inst_sqm'] * data['qm']) + (data['mgt_monat'] * 12)) * ((1 + data['cost_inc']) ** (yr - 1))
+        # NUR DAS NICHT UMLEGBARE HAUSGELD SCHMÄLERT DIE EIGENTÜMER-RENDITE
+        op_costs = (annual_nu_hausgeld + (data['inst_sqm'] * data['qm']) + (data['mgt_monat'] * 12)) * ((1 + data['cost_inc']) ** (yr - 1))
         
         capex = 0
         if yr == 3: capex = data['capex_j3']
@@ -645,7 +657,8 @@ default_state = {
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
-    "hausgeld": 0.0, "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
+    "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0, "instandhaltung_ruecklage": 0.0,
+    "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
     "tax_rate": 0.42, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
     "cost_inc": 2.0, "val_inc": 1.5, "wacc": 6.0, "exit_cost": 2.0
 }
@@ -809,6 +822,7 @@ if nav_choice == "Pipeline":
                 'adj_year': d.get("adj_year", 3),
                 'park': d.get("park", 0), 'vac_rate': d.get("vac_rate", 0.02),
                 'qm': d.get("qm", 0), 'hausgeld': d.get("hausgeld", 0),
+                'hausgeld_nicht_umlegbar': d.get("hausgeld_nicht_umlegbar", 0),
                 'inst_sqm': d.get("inst_sqm", 10), 'mgt_monat': d.get("mgt_monat", 25),
                 'capex_j3': d.get("capex_j3", 0), 'capex_j6': d.get("capex_j6", 0),
                 'tax_rate': d.get("tax_rate", 0.42), 'afa_model': d.get("afa_model", "1_Linear_Standard"),
@@ -913,7 +927,23 @@ elif nav_choice == "Analyse":
             st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
             st.number_input("Baujahr", key="baujahr", step=1)
             st.number_input("Ist-Kaltmiete (€/m²) *", key="ist_sqm", step=0.50)
-            st.number_input("Hausgeld (€/Monat)", key="hausgeld", step=10.0)
+            
+            st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0)
+            st.number_input("Davon nicht umlegbar (€/Monat)", key="hausgeld_nicht_umlegbar", step=5.0, help="Eigentümer-Anteil inkl. WEG-Verwaltung und Instandhaltungsrücklage")
+            st.number_input("Davon Instandhaltungsrücklage (€/Monat)", key="instandhaltung_ruecklage", step=5.0, help="Teil des nicht umlegbaren Hausgeldes für die WEG-Instandhaltungsrücklage")
+
+            # DYNAMISCHER EXPERTEN-HINWEIS ZUR HAUSGELD-AUFTEILUNG
+            hg_tot = st.session_state.get("hausgeld", 0.0)
+            hg_nu = st.session_state.get("hausgeld_nicht_umlegbar", 0.0)
+            if hg_tot > 0:
+                if hg_nu <= 0:
+                    eff_nu = hg_tot * 0.25
+                    eff_um = hg_tot * 0.75
+                    st.caption(f"💡 **Experten-Annahme (25% nicht umlegbar):** ca. **{fmt_eur(eff_um)}/M** umlegbar (Mieter) & **{fmt_eur(eff_nu)}/M** nicht umlegbar (Eigentümer).")
+                else:
+                    eff_um = max(0.0, hg_tot - hg_nu)
+                    st.caption(f"📊 **Aufteilung:** **{fmt_eur(eff_um)}/M** umlegbar (Mieter) & **{fmt_eur(hg_nu)}/M** nicht umlegbar (Eigentümer).")
+
             st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
 
         with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
@@ -980,6 +1010,8 @@ elif nav_choice == "Analyse":
         'adj_year': st.session_state["adj_year"],
         'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate"],
         'qm': st.session_state["qm"], 'hausgeld': st.session_state["hausgeld"],
+        'hausgeld_nicht_umlegbar': st.session_state["hausgeld_nicht_umlegbar"],
+        'instandhaltung_ruecklage': st.session_state["instandhaltung_ruecklage"],
         'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
         'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
         'tax_rate': st.session_state["tax_rate"], 'afa_model': st.session_state["afa_model"],
@@ -1197,60 +1229,6 @@ elif nav_choice == "Vergleich":
     st.markdown("<p style='color:#555759;'>Parallele Gegenüberstellung mehrerer Investitionsvorhaben.</p>", unsafe_allow_html=True)
     
     st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
-    
-    # VERSTECKER CODE FÜR DEN DEAL-VERGLEICH
-    if False:
-        projects = db_get_projects(sb_client, st.session_state["user_email"])
-        
-        if len(projects) >= 2:
-            selected_deals = st.multiselect("Projekte auswählen:", [p["project_name"] for p in projects], default=[p["project_name"] for p in projects[:2]])
-            
-            if len(selected_deals) >= 2:
-                cols = st.columns(len(selected_deals))
-                
-                for idx, deal_name in enumerate(selected_deals):
-                    p = next(proj for proj in projects if proj["project_name"] == deal_name)
-                    d = p["input_data"]
-                    
-                    df_c, tot_inv, ek_abs, fk_tot, irr, _, _ = calc_10y_projection({
-                        'kaufpreis': d.get("kaufpreis", 0), 'sanierung': d.get("sanierung", 0),
-                        'bundesland': d.get("bundesland", "Niedersachsen"), 'notar_proz': d.get("notar_p", 1.5)/100,
-                        'makler_proz': d.get("makler_p", 3.57)/100, 'sonst_nk': d.get("sonst_nk", 1000),
-                        'disagio_proz': d.get("disagio_p", 0)/100, 'ek_euro': d.get("ek_euro", 0.0),
-                        'ek_quote': d.get("ek_quote", 0.2),
-                        'hb_share': d.get("hb_share", 0.8), 'hb_zins': d.get("hb_zins", 3.8)/100,
-                        'hb_tilg': d.get("hb_tilg", 2.0)/100, 'grace_years': d.get("grace_years", 0),
-                        'kfw_amt': d.get("kfw_amt", 0), 'kfw_zins': d.get("kfw_zins", 2.1)/100,
-                        'kfw_tilg': d.get("kfw_tilg", 3.0)/100, 'kfw_grant': d.get("kfw_grant", 0),
-                        'sondertilg': d.get("sondertilg", 0), 'ist_sqm': d.get("ist_sqm", 0),
-                        'target_sqm': d.get("target_sqm", 0) if d.get("target_sqm", 0) > 0 else d.get("ist_sqm", 0),
-                        'adj_year': d.get("adj_year", 3),
-                        'park': d.get("park", 0), 'vac_rate': d.get("vac_rate", 0.02),
-                        'qm': d.get("qm", 0), 'hausgeld': d.get("hausgeld", 0),
-                        'inst_sqm': d.get("inst_sqm", 10), 'mgt_monat': d.get("mgt_monat", 25),
-                        'capex_j3': d.get("capex_j3", 0), 'capex_j6': d.get("capex_j6", 0),
-                        'tax_rate': d.get("tax_rate", 0.42), 'afa_model': d.get("afa_model", "1_Linear_Standard"),
-                        'afa_lin': d.get("afa_lin", 2.0)/100, 'miet_inc': d.get("miet_inc", 1.5)/100,
-                        'cost_inc': d.get("cost_inc", 2.0)/100, 'val_inc': d.get("val_inc", 1.5)/100,
-                        'wacc': d.get("wacc", 6.0)/100, 'exit_cost': d.get("exit_cost", 2.0)/100,
-                        'grund_anteil': d.get("grund_anteil", 0.2)
-                    })
-                    
-                    cf_m = df_c.loc[0, 'CF n. St.'] / 12
-                    rendite = df_c.loc[0, 'Bruttomietrendite'] * 100
-                    
-                    with cols[idx]:
-                        st.markdown(f"<div class='valuon-card'><h3>{deal_name}</h3>", unsafe_allow_html=True)
-                        st.metric("Kaufpreis", fmt_eur(d.get('kaufpreis', 0)))
-                        st.metric("Cashflow (netto)", f"{fmt_de(cf_m, 2)} €/M")
-                        st.metric("Bruttomietrendite", fmt_pct(rendite))
-                        st.metric("10J-IRR", fmt_pct(irr*100))
-                        st.metric("Eigenkapital", fmt_eur(ek_abs))
-                        st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.warning("Bitte wählen Sie mindestens zwei Projekte für den Vergleich aus.")
-        else:
-            st.info("Es sind mindestens zwei gespeicherte Projekte erforderlich, um den Deal-Vergleich zu nutzen.")
 
 # =============================================================================
 # MODUL 4: MAXIMALER KAUFPREIS
@@ -1260,32 +1238,6 @@ elif nav_choice == "Kaufpreis":
     st.markdown("<p style='color:#555759;'>Ermittlung der strategischen Gebots-Obergrenze.</p>", unsafe_allow_html=True)
 
     st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
-
-    # VERSTECKER CODE FÜR DEN MAX KAUFPREIS-RECHNER
-    if False:
-        col_g1, col_g2 = st.columns(2)
-        
-        with col_g1:
-            desired_cf = st.number_input("Ziel-Cashflow (netto, €/Monat)", value=100.0, step=25.0)
-            current_kp = st.session_state["kaufpreis"]
-            st.info(f"Aktueller Objektpreis: **{fmt_eur(current_kp)}**")
-
-        with col_g2:
-            best_price = current_kp
-            if current_kp > 0:
-                for test_kp in range(50000, 2000000, 5000):
-                    test_data = dict(input_data)
-                    test_data['kaufpreis'] = float(test_kp)
-                    df_test, _, _, _, _, _, _ = calc_10y_projection(test_data)
-                    test_cf = df_test.loc[0, 'CF n. St.'] / 12
-                    if test_cf >= desired_cf:
-                        best_price = test_kp
-                    else:
-                        break
-                        
-                st.metric("Gebots-Obergrenze", fmt_eur(best_price), delta=f"{fmt_eur(best_price - current_kp)} zum Angebotspreis")
-            else:
-                st.warning("Bitte definieren Sie zuerst die Objektdaten im Analyse-Rechner.")
 
 # =============================================================================
 # MODUL 5: EINSTELLUNGEN
