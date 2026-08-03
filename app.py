@@ -315,6 +315,24 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
+# CALLBACK HELPERS FOR SAFE STATE SYNCHRONIZATION
+# -----------------------------------------------------------------------------
+def sync_rent_from_monat():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0:
+        st.session_state["ist_sqm"] = st.session_state.get("ist_miete_monat", 0.0) / qm
+
+def sync_rent_from_sqm():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0:
+        st.session_state["ist_miete_monat"] = st.session_state.get("ist_sqm", 0.0) * qm
+
+def sync_rent_from_qm():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0 and st.session_state.get("ist_sqm", 0.0) > 0:
+        st.session_state["ist_miete_monat"] = st.session_state["ist_sqm"] * qm
+
+# -----------------------------------------------------------------------------
 # SECRETS & HELPERS
 # -----------------------------------------------------------------------------
 def get_gemini_api_key() -> str:
@@ -545,7 +563,6 @@ def calc_10y_projection(data):
     
     current_sqm_rent = data['ist_sqm']
     
-    # HAUSGELD AUFTEILUNGS-LOGIK (EXPERIENZ-ANNAHME: 25% Nicht-Umlegbar falls 0 angegeben)
     hausgeld_tot = data['hausgeld']
     hausgeld_nu = data.get('hausgeld_nicht_umlegbar', 0.0)
     
@@ -567,7 +584,6 @@ def calc_10y_projection(data):
         vacancy = gross_rent * data['vac_rate']
         net_rent = gross_rent - vacancy
         
-        # NUR DAS NICHT UMLEGBARE HAUSGELD SCHMÄLERT DIE EIGENTÜMER-RENDITE
         op_costs = (annual_nu_hausgeld + (data['inst_sqm'] * data['qm']) + (data['mgt_monat'] * 12)) * ((1 + data['cost_inc']) ** (yr - 1))
         
         capex = 0
@@ -673,7 +689,7 @@ default_state = {
     "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
     "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
-    "ek_euro": None, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
+    "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
     "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
@@ -689,7 +705,7 @@ for k, v in default_state.items():
 sb_client = get_supabase_client()
 
 # -----------------------------------------------------------------------------
-# AUTH GATE (IMMERSIVE EDITORIAL LANDING PAGE WITH PARALLAX HERO & GALLERY)
+# AUTH GATE
 # -----------------------------------------------------------------------------
 if not st.session_state["authenticated"]:
     st.markdown("""
@@ -771,7 +787,7 @@ if not st.session_state["authenticated"]:
             st.session_state["ist_miete_monat"] = 0.0
             st.session_state["ist_sqm"] = 0.0
             st.session_state["target_sqm"] = 0.0
-            st.session_state["ek_euro"] = None
+            st.session_state["ek_euro"] = 0.0
             st.session_state["trigger_analysis"] = False
             st.rerun()
             
@@ -964,8 +980,7 @@ elif nav_choice == "Analyse":
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
             
-            # BUNDESLAND VOR STADT UND STADTTEIL
-            selected_bl = st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
             
             c_loc1, c_loc2 = st.columns(2)
             c_loc1.text_input("Stadt", key="stadt", placeholder="z. B. Hannover")
@@ -975,31 +990,22 @@ elif nav_choice == "Analyse":
             if kp_in > 0:
                 st.caption(f"💡 Kaufpreis: **{fmt_eur(kp_in)}**")
                 
-            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
+            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, on_change=sync_rent_from_qm)
             st.number_input("Baujahr", key="baujahr", step=1)
             
-            # KALTMIETE FLEXIBEL (GESAMT ODER PRO SQM)
             st.markdown("---")
             st.markdown("**Mieteinnahmen (IST)**")
             col_m1, col_m2 = st.columns(2)
             
-            m_ges = col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0)
-            
-            # Automatische Umrechnung
-            if m_ges > 0 and qm_in > 0:
-                calculated_sqm_rent = m_ges / qm_in
-                st.session_state["ist_sqm"] = calculated_sqm_rent
-                
-            m_sqm = col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50)
-            if m_sqm > 0 and qm_in > 0 and m_ges == 0:
-                st.session_state["ist_miete_monat"] = m_sqm * qm_in
+            # AUTOMATISCHE UMRECHNUNG MITTELS STREAMLIT CALLBACKS
+            col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, on_change=sync_rent_from_monat)
+            col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, on_change=sync_rent_from_sqm)
 
             if st.session_state["ist_sqm"] > 0 and qm_in > 0:
                 total_kalt = st.session_state["ist_sqm"] * qm_in
                 st.caption(f"📊 Gesamt-Miete: **{fmt_eur(total_kalt)}/M** (**{fmt_de(st.session_state['ist_sqm'], 2)} €/m²**)")
 
             st.markdown("---")
-            # HAUPTFELD HAUSGELD
             st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0)
             
             with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
@@ -1035,7 +1041,6 @@ elif nav_choice == "Analyse":
             makler_val = c_nk2.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1)
             sonst_nk_val = st.number_input("4. Sonstige Nebenkosten (€)", key="sonst_nk", step=250.0)
             
-            # AUTOMATISCHE KAUFNEBENKOSTEN-BERECHNUNG
             kp_val = st.session_state["kaufpreis"]
             notar_euro = kp_val * (notar_val / 100)
             makler_euro = kp_val * (makler_val / 100)
@@ -1059,10 +1064,9 @@ elif nav_choice == "Analyse":
             st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1)
 
             st.markdown("---")
-            # EIGENKAPITALFELD BEFINDET SICH JETZT AM ENDE
             st.markdown("**Eigenkapital (100%-Finanzierungs-Richtwert)**")
             
-            if st.session_state["ek_euro"] is None:
+            if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nebenkosten > 0:
                 st.session_state["ek_euro"] = float(tot_nebenkosten)
                 
             ek_input = st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0)
@@ -1070,7 +1074,7 @@ elif nav_choice == "Analyse":
             est_tot_inv = kp_val + tot_nebenkosten + st.session_state["sanierung"]
             calculated_quote = (ek_input / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
             
-            st.caption(f"💡 Standardmäßig sind die Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital hinterlegt (100%-Finanzierung). Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
+            st.caption(f"💡 Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital-Richtwert (100%-Finanzierung). Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
 
         # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
@@ -1093,7 +1097,6 @@ elif nav_choice == "Analyse":
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1)
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1)
 
-        # BUTTON FÜR EXPLIZITEN START DER BERECHNUNG
         st.divider()
         if st.button("🚀 Analyse starten / aktualisieren", type="primary", use_container_width=True):
             st.session_state["trigger_analysis"] = True
@@ -1106,7 +1109,7 @@ elif nav_choice == "Analyse":
         'bundesland': st.session_state["bundesland"], 'stadt': st.session_state["stadt"], 'stadtteil': st.session_state["stadtteil"],
         'objektart': st.session_state["objektart"],
         'notar_proz': st.session_state["notar_p"] / 100, 'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
-        'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"] if st.session_state["ek_euro"] is not None else 0.0,
+        'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
         'ek_quote': st.session_state["ek_quote"],
         'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
         'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
@@ -1127,7 +1130,6 @@ elif nav_choice == "Analyse":
         'grund_anteil': st.session_state["grund_anteil"]
     }
 
-    # BERECHNUNG ERST BEIM KLICK AUF DEN BUTTON ODER BEIM LADEN EINES PROJEKTS
     if not st.session_state.get("trigger_analysis", False):
         st.markdown("""
         <div class="valuon-placeholder">
@@ -1156,7 +1158,6 @@ elif nav_choice == "Analyse":
         else:
             df_proj, tot_inv, ek_abs, fk_tot, irr, afa_base, ek_quote_calc = calc_10y_projection(input_data)
 
-            # SANITY CHECKS
             sanity_warnings = check_input_sanity(input_data)
             if sanity_warnings:
                 for w in sanity_warnings:
@@ -1196,7 +1197,6 @@ elif nav_choice == "Analyse":
             status_roe, label_roe = get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])
             status_dscr, label_dscr = get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
 
-            # KPI CARDS
             c1, c2, c3, c4 = st.columns(4)
             
             c1.markdown(f'''
@@ -1267,7 +1267,6 @@ elif nav_choice == "Analyse":
             </div>
             ''', unsafe_allow_html=True)
 
-            # TABS
             tab_dash, tab_plan = st.tabs(["Executive Dashboard", "10-Jahres-Modell"])
 
             with tab_dash:
