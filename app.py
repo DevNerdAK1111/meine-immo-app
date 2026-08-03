@@ -273,13 +273,10 @@ st.markdown("""
         color: #13381A;
         border: 1px solid #D4C9B8;
         border-radius: 8px;
-        padding: 8px 12px;
+        padding: 10px 14px;
         font-size: 0.85rem;
-        font-weight: 600;
         margin-top: 8px;
         margin-bottom: 12px;
-        display: flex;
-        justify-content: space-between;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -613,7 +610,7 @@ def calc_10y_projection(data):
         tilg_hb = (hb_loan * data['hb_tilg']) if yr > data['grace_years'] else 0
         
         zins_kfw = restschuld_kfw * data['kfw_zins'] if kfw_loan > 0 else 0
-        tilg_kfw = (kfw_loan * data['kfw_tilg']) if kfw_loan > 0 else 0
+        tilg_kfw = (kfw_loan * data['kfw_tilg']) if (kfw_loan > 0 and yr > data.get('kfw_grace_years', 0)) else 0
         
         zins_tot = zins_hb + zins_kfw
         tilg_tot = tilg_hb + tilg_kfw
@@ -707,7 +704,7 @@ default_state = {
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
     "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
-    "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
+    "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
     "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
     "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
@@ -873,7 +870,7 @@ if nav_choice == "Pipeline":
                 'hb_share': d.get("hb_share", 0.8), 'hb_zins': d.get("hb_zins", 3.8)/100,
                 'hb_tilg': d.get("hb_tilg", 2.0)/100, 'grace_years': d.get("grace_years", 0),
                 'kfw_amt': d.get("kfw_amt", 0), 'kfw_zins': d.get("kfw_zins", 2.1)/100,
-                'kfw_tilg': d.get("kfw_tilg", 3.0)/100, 'kfw_grant': d.get("kfw_grant", 0),
+                'kfw_tilg': d.get("kfw_tilg", 3.0)/100, 'kfw_grace_years': d.get("kfw_grace_years", 0), 'kfw_grant': d.get("kfw_grant", 0),
                 'sondertilg': d.get("sondertilg", 0), 'ist_sqm': d.get("ist_sqm", 0),
                 'target_sqm': d.get("target_sqm", 0) if d.get("target_sqm", 0) > 0 else d.get("ist_sqm", 0),
                 'adj_year': d.get("adj_year", 3),
@@ -1019,7 +1016,14 @@ elif nav_choice == "Analyse":
             col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, format="%.2f", on_change=sync_rent_from_sqm)
 
             st.markdown("---")
-            st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0, format="%.2f")
+            # HINWEIS-FRAGEZEICHEN JETZT DIREKT AN DER OBERSTEN EBENE DES HAUSGELDS
+            st.number_input(
+                "Hausgeld gesamt (€/Monat)", 
+                key="hausgeld", 
+                step=10.0, 
+                format="%.2f",
+                help="Falls keine spezifische Aufteilung eingetragen wird, nimmt die Berechnung automatisch an, dass 75 % umlegbare Betriebskosten (vom Mieter getragen) und 25 % nicht umlegbare Kosten (WEG-Verwaltung + Instandhaltungsrücklage) sind."
+            )
             
             with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
                 st.number_input(
@@ -1037,7 +1041,7 @@ elif nav_choice == "Analyse":
             st.markdown("**Kaufnebenkosten**")
             
             c_nk1, c_nk2 = st.columns(2)
-            grwt_val = c_nk1.number_input(f"1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
+            grwt_val = c_nk1.number_input("1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
             notar_val = c_nk2.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1, format="%.2f")
             
             c_nk3, c_nk4 = st.columns(2)
@@ -1050,10 +1054,27 @@ elif nav_choice == "Analyse":
             makler_euro = kp_val * (makler_val / 100)
             tot_nebenkosten = grwt_euro + notar_euro + makler_euro + sonst_nk_val
             
+            # DIE GELBE BOX BEINHALTET NUN DIE EINZELNEN EURO-WERTE + DIE GESAMTSUMME
             st.markdown(f"""
             <div class="ek-quote-badge">
-                <span>Summe Kaufnebenkosten:</span>
-                <span style="color: #13381A; font-weight: 700;">{fmt_eur(tot_nebenkosten)}</span>
+                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
+                    <span>Grunderwerbsteuer ({fmt_pct(grwt_val)}):</span>
+                    <span>{fmt_eur(grwt_euro)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
+                    <span>Notar & Grundbuch ({fmt_pct(notar_val)}):</span>
+                    <span>{fmt_eur(notar_euro)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;">
+                    <span>Maklerprovision ({fmt_pct(makler_val)}):</span>
+                    <span>{fmt_eur(makler_euro)}</span>
+                </div>
+                {"<div style='display: flex; justify-content: space-between; font-weight: 400; font-size: 0.82rem; color: #555759; margin-bottom: 3px;'><span>Sonstige Nebenkosten:</span><span>" + fmt_eur(sonst_nk_val) + "</span></div>" if sonst_nk_val > 0 else ""}
+                <hr style="margin: 6px 0; border: none; border-top: 1px dashed #D4C9B8;" />
+                <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; color: #13381A;">
+                    <span>Summe Kaufnebenkosten:</span>
+                    <span>{fmt_eur(tot_nebenkosten)}</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1063,12 +1084,17 @@ elif nav_choice == "Analyse":
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
             
-            st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
-            st.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
-            st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1, format="%.2f")
+            # KFW DARLEHEN IN EXPANDER ZUM AUSKLAPPEN INKL. TILGUNGSFREIER JAHRE
+            with st.expander("🏛️ KfW-Darlehen (Optional)", expanded=(st.session_state.get("kfw_amt", 0.0) > 0)):
+                st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
+                c_kfw1, c_kfw2 = st.columns(2)
+                c_kfw1.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
+                c_kfw2.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1, format="%.2f")
+                st.number_input("KfW tilgungsfreie Jahre", key="kfw_grace_years", min_value=0, max_value=10, step=1)
 
             st.markdown("---")
-            st.markdown("**Eigenkapital (100%-Finanzierungs-Richtwert)**")
+            # EIGENKAPITAL OHNE KLAMMERZUSATZ
+            st.markdown("**Eigenkapital**")
             
             if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nebenkosten > 0:
                 st.session_state["ek_euro"] = float(tot_nebenkosten)
@@ -1078,7 +1104,7 @@ elif nav_choice == "Analyse":
             est_tot_inv = kp_val + tot_nebenkosten + st.session_state["sanierung"]
             calculated_quote = (ek_input / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
             
-            st.caption(f"💡 Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital-Richtwert (100%-Finanzierung). Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
+            st.caption(f"💡 Standardmäßig sind die Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital-Richtwert (100%-Finanzierung) hinterlegt. Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
 
         # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
@@ -1119,7 +1145,7 @@ elif nav_choice == "Analyse":
         'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
         'hb_tilg': st.session_state["hb_tilg"] / 100, 'grace_years': st.session_state["grace_years"],
         'kfw_amt': st.session_state["kfw_amt"], 'kfw_zins': st.session_state["kfw_zins"] / 100,
-        'kfw_tilg': st.session_state["kfw_tilg"] / 100, 'kfw_grant': st.session_state["kfw_grant"],
+        'kfw_tilg': st.session_state["kfw_tilg"] / 100, 'kfw_grace_years': st.session_state["kfw_grace_years"], 'kfw_grant': st.session_state["kfw_grant"],
         'sondertilg': st.session_state["sondertilg"], 'ist_sqm': st.session_state["ist_sqm"],
         'target_sqm': target_sqm_resolved, 
         'adj_year': st.session_state["adj_year"],
