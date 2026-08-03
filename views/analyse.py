@@ -383,7 +383,6 @@ def render_analyse_view(sb_client):
                     "LTV": "Beleihungsauslauf (LTV)"
                 })
                 
-                # Dynamische Berechnung der Tabellenhöhe, damit alle Zeilen (inkl. Gesamt) ohne Scrollen sichtbar sind
                 table_height = (len(df_display) + 2) * 35 + 38
                 
                 sub_t1, sub_t2, sub_t3 = st.tabs(["Mieten & Cashflow", "Kapitaldienst & Steuern", "Vermögen & Bilanz"])
@@ -391,6 +390,7 @@ def render_analyse_view(sb_client):
                 with sub_t1:
                     cols_1 = ["Jahr", "Mietrendite (brutto)", "Kaltmiete (brutto)", "Reinertrag (NOI)", "Cashflow (vor St.)", "Cashflow (nach St.)"]
                     df_s1 = df_display[cols_1].set_index("Jahr").copy()
+                    df_s1.index.name = None
                     
                     tot_s1 = {
                         "Mietrendite (brutto)": df_s1["Mietrendite (brutto)"].mean(),
@@ -399,7 +399,7 @@ def render_analyse_view(sb_client):
                         "Cashflow (vor St.)": df_s1["Cashflow (vor St.)"].sum(),
                         "Cashflow (nach St.)": df_s1["Cashflow (nach St.)"].sum()
                     }
-                    df_s1.loc["Gesamt / Ø"] = tot_s1
+                    df_s1.loc["Summe / Ø"] = tot_s1
                     
                     st.dataframe(df_s1.style.format({
                         "Mietrendite (brutto)": lambda x: fmt_pct(x*100), 
@@ -412,6 +412,7 @@ def render_analyse_view(sb_client):
                 with sub_t2:
                     cols_2 = ["Jahr", "Zinsaufwand", "Tilgungsleistung", "Abschreibung (AfA)", "Einkommensteuer", "Cashflow (nach St.)"]
                     df_s2 = df_display[cols_2].set_index("Jahr").copy()
+                    df_s2.index.name = None
                     
                     tot_s2 = {
                         "Zinsaufwand": df_s2["Zinsaufwand"].sum(),
@@ -420,7 +421,7 @@ def render_analyse_view(sb_client):
                         "Einkommensteuer": df_s2["Einkommensteuer"].sum(),
                         "Cashflow (nach St.)": df_s2["Cashflow (nach St.)"].sum()
                     }
-                    df_s2.loc["Gesamt"] = tot_s2
+                    df_s2.loc["Summe"] = tot_s2
                     
                     st.dataframe(df_s2.style.format({
                         "Zinsaufwand": lambda x: fmt_eur(x), 
@@ -433,14 +434,7 @@ def render_analyse_view(sb_client):
                 with sub_t3:
                     cols_3 = ["Jahr", "Restschuld", "Objektwert", "Netto-EK (NAV)", "Beleihungsauslauf (LTV)"]
                     df_s3 = df_display[cols_3].set_index("Jahr").copy()
-                    
-                    tot_s3 = {
-                        "Restschuld": df_s3["Restschuld"].mean(),
-                        "Objektwert": df_s3["Objektwert"].mean(),
-                        "Netto-EK (NAV)": df_s3["Netto-EK (NAV)"].mean(),
-                        "Beleihungsauslauf (LTV)": df_s3["Beleihungsauslauf (LTV)"].mean()
-                    }
-                    df_s3.loc["Durchschnitt"] = tot_s3
+                    df_s3.index.name = None
                     
                     st.dataframe(df_s3.style.format({
                         "Restschuld": lambda x: fmt_eur(x), 
