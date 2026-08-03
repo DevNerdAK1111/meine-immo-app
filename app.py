@@ -60,7 +60,21 @@ st.markdown("""
         z-index: 1;
     }
 
-    /* HIDE STREAMLIT 'PRESS ENTER TO APPLY' INSTRUCTION OVERLAYS COMPLETELY */
+    /* WIDER SIDEBAR FOR PERFECT INPUT ALIGNMENT */
+    section[data-testid="stSidebar"] {
+        width: 400px !important;
+        min-width: 400px !important;
+    }
+
+    /* PERFECT HORIZONTAL ALIGNMENT FOR INPUT LABELS IN COLUMNS */
+    section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"] {
+        min-height: 42px !important;
+        display: flex !important;
+        align-items: flex-end !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* HIDE STREAMLIT INSTRUCTION OVERLAYS COMPLETELY */
     div[data-testid="InputInstructions"], 
     .stInputInstructions, 
     div[aria-live="polite"] {
@@ -259,10 +273,10 @@ st.markdown("""
         color: #13381A;
         border: 1px solid #D4C9B8;
         border-radius: 8px;
-        padding: 6px 10px;
-        font-size: 0.82rem;
+        padding: 8px 12px;
+        font-size: 0.85rem;
         font-weight: 600;
-        margin-top: 4px;
+        margin-top: 8px;
         margin-bottom: 12px;
         display: flex;
         justify-content: space-between;
@@ -331,6 +345,10 @@ def sync_rent_from_qm():
     qm = st.session_state.get("qm", 0.0)
     if qm > 0 and st.session_state.get("ist_sqm", 0.0) > 0:
         st.session_state["ist_miete_monat"] = st.session_state["ist_sqm"] * qm
+
+def update_grwt_from_bundesland():
+    bl = st.session_state.get("bundesland", "Niedersachsen")
+    st.session_state["grwt_p"] = GRUNDERWERBSTEUER_MAP.get(bl, 0.05) * 100
 
 # -----------------------------------------------------------------------------
 # SECRETS & HELPERS
@@ -525,9 +543,8 @@ def analyze_text_with_gemini(api_key, raw_text):
 def calc_10y_projection(data):
     kp = data['kaufpreis']
     san = data['sanierung']
-    bl = data['bundesland']
-    grwt_rate = GRUNDERWERBSTEUER_MAP.get(bl, 0.05)
     
+    grwt_rate = data.get('grwt_proz', 0.05)
     nk_proz = grwt_rate + data['notar_proz'] + data['makler_proz']
     nk_abs = kp * nk_proz + data['sonst_nk']
     
@@ -688,7 +705,7 @@ default_state = {
     "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
     "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
-    "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
+    "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
@@ -847,7 +864,9 @@ if nav_choice == "Pipeline":
             d = p["input_data"]
             calc_p, _, ek_p, fk_p, irr_p, _, _ = calc_10y_projection({
                 'kaufpreis': d.get("kaufpreis", 0), 'sanierung': d.get("sanierung", 0),
-                'bundesland': d.get("bundesland", "Niedersachsen"), 'notar_proz': d.get("notar_p", 2.0)/100,
+                'bundesland': d.get("bundesland", "Niedersachsen"),
+                'grwt_proz': d.get("grwt_p", 5.0)/100,
+                'notar_proz': d.get("notar_p", 2.0)/100,
                 'makler_proz': d.get("makler_p", 3.57)/100, 'sonst_nk': d.get("sonst_nk", 0.0),
                 'disagio_proz': d.get("disagio_p", 0)/100, 'ek_euro': d.get("ek_euro", 0.0),
                 'ek_quote': d.get("ek_quote", 0.2),
@@ -964,7 +983,9 @@ elif nav_choice == "Analyse":
                                     st.session_state["ist_miete_monat"] = float(ai_data["ist_miete_sqm"]) * float(ai_data["wohnflaeche"])
                                     
                             if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
-                            if ai_data.get("bundesland") and str(ai_data["bundesland"]) in GRUNDERWERBSTEUER_MAP: st.session_state["bundesland"] = str(ai_data["bundesland"])
+                            if ai_data.get("bundesland") and str(ai_data["bundesland"]) in GRUNDERWERBSTEUER_MAP: 
+                                st.session_state["bundesland"] = str(ai_data["bundesland"])
+                                update_grwt_from_bundesland()
                             if ai_data.get("stadt") and str(ai_data["stadt"]) != "Unbekannt": st.session_state["stadt"] = str(ai_data["stadt"])
                             if ai_data.get("stadtteil") and str(ai_data["stadtteil"]) != "Unbekannt": st.session_state["stadtteil"] = str(ai_data["stadtteil"])
                             if ai_data.get("objektart") and str(ai_data["objektart"]) in OBJEKTARTEN: st.session_state["objektart"] = str(ai_data["objektart"])
@@ -980,68 +1001,51 @@ elif nav_choice == "Analyse":
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
             
-            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland", on_change=update_grwt_from_bundesland)
             
             c_loc1, c_loc2 = st.columns(2)
             c_loc1.text_input("Stadt", key="stadt", placeholder="z. B. Hannover")
             c_loc2.text_input("Stadtteil", key="stadtteil", placeholder="z. B. List")
             
-            kp_in = st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
-            if kp_in > 0:
-                st.caption(f"💡 Kaufpreis: **{fmt_eur(kp_in)}**")
-                
-            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, on_change=sync_rent_from_qm)
+            st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0, format="%.2f")
+            qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f", on_change=sync_rent_from_qm)
             st.number_input("Baujahr", key="baujahr", step=1)
             
             st.markdown("---")
             st.markdown("**Mieteinnahmen (IST)**")
             col_m1, col_m2 = st.columns(2)
             
-            # AUTOMATISCHE UMRECHNUNG MITTELS STREAMLIT CALLBACKS
-            col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, on_change=sync_rent_from_monat)
-            col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, on_change=sync_rent_from_sqm)
-
-            if st.session_state["ist_sqm"] > 0 and qm_in > 0:
-                total_kalt = st.session_state["ist_sqm"] * qm_in
-                st.caption(f"📊 Gesamt-Miete: **{fmt_eur(total_kalt)}/M** (**{fmt_de(st.session_state['ist_sqm'], 2)} €/m²**)")
+            col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, format="%.2f", on_change=sync_rent_from_monat)
+            col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.50, format="%.2f", on_change=sync_rent_from_sqm)
 
             st.markdown("---")
-            st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0)
+            st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0, format="%.2f")
             
             with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
                 st.number_input(
                     "Davon nicht umlegbar (€/Monat)", 
                     key="hausgeld_nicht_umlegbar", 
                     step=5.0, 
+                    format="%.2f",
                     help="Eigentümer-Anteil (WEG-Verwaltung + Instandhaltungsrücklage). Falls 0,00 €, werden automatisch 25 % angesetzt."
                 )
 
-            hg_tot = st.session_state.get("hausgeld", 0.0)
-            hg_nu = st.session_state.get("hausgeld_nicht_umlegbar", 0.0)
-            if hg_tot > 0:
-                if hg_nu <= 0:
-                    eff_nu = hg_tot * 0.25
-                    eff_um = hg_tot * 0.75
-                    st.caption(f"💡 **Standard (25 % nicht umlegbar):** ca. **{fmt_eur(eff_um)}/M** Mieter | **{fmt_eur(eff_nu)}/M** Eigentümer.")
-                else:
-                    eff_um = max(0.0, hg_tot - hg_nu)
-                    st.caption(f"📊 **Aufteilung:** **{fmt_eur(eff_um)}/M** Mieter | **{fmt_eur(hg_nu)}/M** Eigentümer.")
-
-            st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
+            st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0, format="%.2f")
 
         # 2. FINANZIERUNG & NEBENKOSTEN
         with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
-            grwt_rate = GRUNDERWERBSTEUER_MAP.get(st.session_state["bundesland"], 0.050)
-            grwt_euro = st.session_state["kaufpreis"] * grwt_rate
-            
-            st.markdown(f"**1. Grunderwerbsteuer ({st.session_state['bundesland']}):** `{fmt_pct(grwt_rate*100)}` (**{fmt_eur(grwt_euro)}**)")
+            st.markdown("**Kaufnebenkosten**")
             
             c_nk1, c_nk2 = st.columns(2)
-            notar_val = c_nk1.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1)
-            makler_val = c_nk2.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1)
-            sonst_nk_val = st.number_input("4. Sonstige Nebenkosten (€)", key="sonst_nk", step=250.0)
+            grwt_val = c_nk1.number_input(f"1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
+            notar_val = c_nk2.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1, format="%.2f")
+            
+            c_nk3, c_nk4 = st.columns(2)
+            makler_val = c_nk3.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1, format="%.2f")
+            sonst_nk_val = c_nk4.number_input("4. Sonst. Nebenkosten (€)", key="sonst_nk", step=250.0, format="%.2f")
             
             kp_val = st.session_state["kaufpreis"]
+            grwt_euro = kp_val * (grwt_val / 100)
             notar_euro = kp_val * (notar_val / 100)
             makler_euro = kp_val * (makler_val / 100)
             tot_nebenkosten = grwt_euro + notar_euro + makler_euro + sonst_nk_val
@@ -1055,13 +1059,13 @@ elif nav_choice == "Analyse":
             
             st.markdown("---")
             st.markdown("**Bank-Kredit & Zinsen**")
-            st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1)
-            st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1)
+            st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
+            st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
             
-            st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
-            st.number_input("KfW Zins (%)", key="kfw_zins", step=0.1)
-            st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1)
+            st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
+            st.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
+            st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1, format="%.2f")
 
             st.markdown("---")
             st.markdown("**Eigenkapital (100%-Finanzierungs-Richtwert)**")
@@ -1069,7 +1073,7 @@ elif nav_choice == "Analyse":
             if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nebenkosten > 0:
                 st.session_state["ek_euro"] = float(tot_nebenkosten)
                 
-            ek_input = st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0)
+            ek_input = st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0, format="%.2f")
             
             est_tot_inv = kp_val + tot_nebenkosten + st.session_state["sanierung"]
             calculated_quote = (ek_input / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
@@ -1078,7 +1082,7 @@ elif nav_choice == "Analyse":
 
         # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
-            st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50)
+            st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f")
             
             current_target = st.session_state.get("target_sqm", 0.0)
             current_ist = st.session_state.get("ist_sqm", 0.0)
@@ -1086,16 +1090,16 @@ elif nav_choice == "Analyse":
                 st.caption("Automatisch IST-Kaltmiete, falls nicht abgeändert.")
                 
             st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
-            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0)
-            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0)
+            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
+            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
             st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate", step=0.01)
 
         # 4. STEUERN & MAKRO
         with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
-            st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1)
-            st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1)
+            st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
+            st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
 
         st.divider()
         if st.button("🚀 Analyse starten / aktualisieren", type="primary", use_container_width=True):
@@ -1108,6 +1112,7 @@ elif nav_choice == "Analyse":
         'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
         'bundesland': st.session_state["bundesland"], 'stadt': st.session_state["stadt"], 'stadtteil': st.session_state["stadtteil"],
         'objektart': st.session_state["objektart"],
+        'grwt_proz': st.session_state["grwt_p"] / 100,
         'notar_proz': st.session_state["notar_p"] / 100, 'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
         'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
         'ek_quote': st.session_state["ek_quote"],
