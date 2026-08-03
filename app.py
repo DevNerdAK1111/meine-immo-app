@@ -103,7 +103,7 @@ st.markdown("""
         background: linear-gradient(135deg, #ffffff 0%, #F7F4EC 100%);
         border: 2px dashed #D4C9B8;
         border-radius: 16px;
-        padding: 40px 30px;
+        padding: 35px 30px;
         text-align: center;
         margin: 20px 0;
     }
@@ -246,6 +246,20 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 10px;
     }
+    
+    .ek-quote-badge {
+        background-color: #F4EFE6;
+        color: #13381A;
+        border: 1px solid #D4C9B8;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-top: 4px;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -339,19 +353,19 @@ def db_delete_project(supabase: Client, project_id: int):
 def check_input_sanity(d: dict) -> list:
     warnings = []
     if d['hb_zins'] > 0.15:
-        warnings.append(f"Zinssatz Hausbank ({fmt_pct(d['hb_zins']*100)}) ist ungewöhnlich hoch. Haben Sie sich vertippt? (z.B. 3,8% statt 38%)")
+        warnings.append(f"Zinssatz Hausbank ({fmt_pct(d['hb_zins']*100)}) ist ungewöhnlich hoch. Vertippt? (z.B. 3,8% statt 38%)")
     if d['kfw_zins'] > 0.15:
-        warnings.append(f"Zinssatz KfW ({fmt_pct(d['kfw_zins']*100)}) ist ungewöhnlich hoch.")
+        warnings.append(f"Zinssatz KfW ({fmt_pct(d['kfw_zins']*100)}) ist sehr hoch angesetzt.")
     if d['notar_proz'] > 0.10:
-        warnings.append(f"Notar- und Gerichtskosten ({fmt_pct(d['notar_proz']*100)}) sind sehr hoch angesetzt.")
+        warnings.append(f"Notar- und Gerichtskosten ({fmt_pct(d['notar_proz']*100)}) sind sehr hoch.")
     if d['makler_proz'] > 0.15:
-        warnings.append(f"Maklerprovision ({fmt_pct(d['makler_proz']*100)}) ist sehr hoch angesetzt.")
+        warnings.append(f"Maklerprovision ({fmt_pct(d['makler_proz']*100)}) ist sehr hoch.")
     if d['miet_inc'] > 0.10:
-        warnings.append(f"Erwartete Mietsteigerung ({fmt_pct(d['miet_inc']*100)} p.a.) erscheint sehr optimistisch.")
+        warnings.append(f"Erwartete Mietsteigerung ({fmt_pct(d['miet_inc']*100)} p.a.) ist sehr hoch.")
     if d['val_inc'] > 0.10:
-        warnings.append(f"Erwartete Wertsteigerung ({fmt_pct(d['val_inc']*100)} p.a.) erscheint sehr optimistisch.")
+        warnings.append(f"Erwartete Wertsteigerung ({fmt_pct(d['val_inc']*100)} p.a.) ist sehr hoch.")
     if d['tax_rate'] > 0.50:
-        warnings.append(f"Grenzsteuersatz ({fmt_pct(d['tax_rate']*100)}) liegt über dem deutschen Höchstsatz.")
+        warnings.append(f"Grenzsteuersatz ({fmt_pct(d['tax_rate']*100)}) liegt über dem Höchstsatz.")
     if d['hausgeld'] > 0 and d['qm'] > 0 and (d['hausgeld'] / d['qm']) > 30.0:
         warnings.append(f"Hausgeld pro m² ({fmt_eur(d['hausgeld']/d['qm'], 2)}/m²) ist ungewöhnlich hoch.")
     return warnings
@@ -842,7 +856,7 @@ elif nav_choice == "Analyse":
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
         
-        # VERSTECKTER KI-IMPORT IN EXPANDER (BETA)
+        # KI-IMPORT IN EXPANDER (BETA)
         with st.expander("🤖 KI-gestützter Import (Beta)", expanded=False):
             active_api_key = get_gemini_api_key()
             import_type = st.radio("Quellformat wählen:", ["Web-Link (URL)", "PDF Exposé", "Text manuell"])
@@ -884,44 +898,57 @@ elif nav_choice == "Analyse":
         st.divider()
         st.markdown("### Parametrisierung")
         
-        # FORMULAR FÜR PARAMETER
-        with st.form(key="parameter_form"):
-            with st.expander("1. Objektdaten (Exposé)", expanded=True):
-                st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
-                st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
-                st.number_input("Kaufpreis (€)", key="kaufpreis", step=5000.0)
-                st.number_input("Wohnfläche (m²)", key="qm", step=5.0)
-                st.number_input("Baujahr", key="baujahr", step=1)
-                st.number_input("Ist-Kaltmiete (€/m²)", key="ist_sqm")
-                st.number_input("Hausgeld (€/Monat)", key="hausgeld")
-                st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
+        # DIREKTE SEITENLEISTEN-EINGABEN (AUTOMATISCHE DYNAMISCHE DURCHRECHNUNG ON-BLUR)
+        with st.expander("1. Objektdaten (Exposé)", expanded=True):
+            st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
+            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
+            st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
+            st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
+            st.number_input("Baujahr", key="baujahr", step=1)
+            st.number_input("Ist-Kaltmiete (€/m²) *", key="ist_sqm", step=0.50)
+            st.number_input("Hausgeld (€/Monat)", key="hausgeld", step=10.0)
+            st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
 
-            with st.expander("2. Finanzierung & Nebenkosten", expanded=False):
-                st.number_input("Eigenkapital (€)", key="ek_euro", step=5000.0, help="Absoluter Eigenkapitalbetrag in Euro")
-                st.number_input("Hausbank Zins (%)", key="hb_zins")
-                st.number_input("Hausbank Tilgung (%)", key="hb_tilg")
-                st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
-                st.number_input("Notar (%)", key="notar_p")
-                st.number_input("Makler (%)", key="makler_p")
-                st.number_input("Sonstige NK (€)", key="sonst_nk")
-                st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
-                st.number_input("KfW Zins (%)", key="kfw_zins")
-                st.number_input("KfW Tilgung (%)", key="kfw_tilg")
+        with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
+            st.number_input("Eigenkapital (€)", key="ek_euro", step=5000.0)
+            
+            # LIVE BERECHNUNG & ANZEIGE DER EIGENKAPITALQUOTE
+            kp_val = st.session_state["kaufpreis"]
+            ek_val = st.session_state["ek_euro"]
+            est_nk = (kp_val * (GRUNDERWERBSTEUER_MAP.get(st.session_state["bundesland"], 0.05) + (st.session_state["notar_p"]/100) + (st.session_state["makler_p"]/100))) + st.session_state["sonst_nk"]
+            est_tot_inv = kp_val + est_nk + st.session_state["sanierung"]
+            calculated_quote = (ek_val / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
+            
+            st.markdown(f"""
+            <div class="ek-quote-badge">
+                <span>Errechnete EK-Quote:</span>
+                <span style="color: #13381A; font-weight: 700;">{fmt_pct(calculated_quote)}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1)
+            st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1)
+            st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
+            st.number_input("Notar (%)", key="notar_p", step=0.1)
+            st.number_input("Makler (%)", key="makler_p", step=0.1)
+            st.number_input("Sonstige NK (€)", key="sonst_nk", step=250.0)
+            st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0)
+            st.number_input("KfW Zins (%)", key="kfw_zins", step=0.1)
+            st.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1)
 
-            with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
-                st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", help="Standardmäßig gleich der Ist-Miete. Passt sich automatisch an, wenn 0,00 € eingegeben ist.")
-                st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
-                st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm")
-                st.number_input("Verwaltung (€/Monat)", key="mgt_monat")
-                st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate")
+        with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
+            st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50)
+            st.caption("Hinweis: Bleibt bei 0,00 € automatisch identisch mit der Ist-Miete.")
+            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
+            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0)
+            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0)
+            st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate", step=0.01)
 
-            with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
-                st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
-                st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
-                st.number_input("Mietsteigerung p.a. (%)", key="miet_inc")
-                st.number_input("Wertsteigerung p.a. (%)", key="val_inc")
-
-            st.form_submit_button("Eingaben bestätigen & Berechnen", type="primary", use_container_width=True)
+        with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
+            st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
+            st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
+            st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1)
+            st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1)
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
 
@@ -949,14 +976,22 @@ elif nav_choice == "Analyse":
         'grund_anteil': st.session_state["grund_anteil"]
     }
 
-    has_minimum_data = (st.session_state["kaufpreis"] > 0) and (st.session_state["qm"] > 0)
+    # LOGIK-PRÜFUNG AUF PFLICHTFELDER
+    missing_fields = []
+    if st.session_state["kaufpreis"] <= 0:
+        missing_fields.append("Kaufpreis (€)")
+    if st.session_state["qm"] <= 0:
+        missing_fields.append("Wohnfläche (m²)")
+    if st.session_state["ist_sqm"] <= 0:
+        missing_fields.append("Ist-Kaltmiete (€/m²)")
 
-    if not has_minimum_data:
-        st.markdown("""
+    if missing_fields:
+        missing_str = ", ".join([f"<b>{f}</b>" for f in missing_fields])
+        st.markdown(f"""
         <div class="valuon-placeholder">
-            <h2 style="font-size: 1.8rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Objektbewertung initialisieren</h2>
-            <p style="font-size: 1.05rem; color: #555759; max-width: 580px; margin: 0 auto 15px auto;">
-                Bitte erfassen Sie in der linken Seitenleiste mindestens den <b>Kaufpreis</b> und die <b>Wohnfläche</b> und klicken Sie auf <b>„Eingaben bestätigen & Berechnen“</b>.
+            <h2 style="font-size: 1.6rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Objektbewertung initialisieren</h2>
+            <p style="font-size: 1.05rem; color: #555759; max-width: 620px; margin: 0 auto 15px auto;">
+                Bitte tragen Sie in der Seitenleiste noch folgende Pflichtfelder ein: {missing_str}.
             </p>
         </div>
         """, unsafe_allow_html=True)
