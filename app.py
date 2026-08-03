@@ -59,6 +59,13 @@ st.markdown("""
         background: transparent !important;
         z-index: 1;
     }
+
+    /* HIDE STREAMLIT 'PRESS ENTER TO APPLY' INSTRUCTION OVERLAYS COMPLETELY */
+    div[data-testid="InputInstructions"], 
+    .stInputInstructions, 
+    div[aria-live="polite"] {
+        display: none !important;
+    }
     
     /* Immersive Landing Hero Background */
     .landing-hero {
@@ -898,7 +905,7 @@ elif nav_choice == "Analyse":
         st.divider()
         st.markdown("### Parametrisierung")
         
-        # DIREKTE SEITENLEISTEN-EINGABEN (AUTOMATISCHE DYNAMISCHE DURCHRECHNUNG ON-BLUR)
+        # DIREKTE SEITENLEISTEN-EINGABEN
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
@@ -938,7 +945,13 @@ elif nav_choice == "Analyse":
 
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
             st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50)
-            st.caption("Hinweis: Bleibt bei 0,00 € automatisch identisch mit der Ist-Miete.")
+            
+            # DYNAMISCHER HINWEIS: Verschwindet automatisch, sobald Ziel-Miete verändert wurde
+            current_target = st.session_state.get("target_sqm", 0.0)
+            current_ist = st.session_state.get("ist_sqm", 0.0)
+            if current_target == 0.0 or current_target == current_ist:
+                st.caption("Automatisch IST-Kaltmiete, falls nicht abgeändert.")
+                
             st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
             st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0)
             st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0)
