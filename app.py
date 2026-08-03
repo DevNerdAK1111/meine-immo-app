@@ -349,17 +349,46 @@ STRATEGIES = {
 def sync_rent_from_monat():
     qm = st.session_state.get("qm", 0.0)
     if qm > 0:
-        st.session_state["ist_sqm"] = st.session_state.get("ist_miete_monat", 0.0) / qm
+        new_sqm = st.session_state.get("ist_miete_monat", 0.0) / qm
+        old_ist_sqm = st.session_state.get("ist_sqm", 0.0)
+        target_sqm = st.session_state.get("target_sqm", 0.0)
+        
+        st.session_state["ist_sqm"] = new_sqm
+        # Auto-sync Zielmiete if unset or identical to IST
+        if target_sqm == 0.0 or abs(target_sqm - old_ist_sqm) < 0.01:
+            st.session_state["target_sqm"] = new_sqm
+            st.session_state["target_miete_monat"] = st.session_state.get("ist_miete_monat", 0.0)
 
 def sync_rent_from_sqm():
     qm = st.session_state.get("qm", 0.0)
     if qm > 0:
-        st.session_state["ist_miete_monat"] = st.session_state.get("ist_sqm", 0.0) * qm
+        new_monat = st.session_state.get("ist_sqm", 0.0) * qm
+        old_ist_monat = st.session_state.get("ist_miete_monat", 0.0)
+        target_monat = st.session_state.get("target_miete_monat", 0.0)
+        
+        st.session_state["ist_miete_monat"] = new_monat
+        # Auto-sync Zielmiete if unset or identical to IST
+        if target_monat == 0.0 or abs(target_monat - old_ist_monat) < 1.0:
+            st.session_state["target_miete_monat"] = new_monat
+            st.session_state["target_sqm"] = st.session_state.get("ist_sqm", 0.0)
 
 def sync_rent_from_qm():
     qm = st.session_state.get("qm", 0.0)
-    if qm > 0 and st.session_state.get("ist_sqm", 0.0) > 0:
-        st.session_state["ist_miete_monat"] = st.session_state["ist_sqm"] * qm
+    if qm > 0:
+        if st.session_state.get("ist_sqm", 0.0) > 0:
+            st.session_state["ist_miete_monat"] = st.session_state["ist_sqm"] * qm
+        if st.session_state.get("target_sqm", 0.0) > 0:
+            st.session_state["target_miete_monat"] = st.session_state["target_sqm"] * qm
+
+def sync_target_rent_from_monat():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0:
+        st.session_state["target_sqm"] = st.session_state.get("target_miete_monat", 0.0) / qm
+
+def sync_target_rent_from_sqm():
+    qm = st.session_state.get("qm", 0.0)
+    if qm > 0:
+        st.session_state["target_miete_monat"] = st.session_state.get("target_sqm", 0.0) * qm
 
 def update_grwt_from_bundesland():
     bl = st.session_state.get("bundesland", "Niedersachsen")
@@ -723,9 +752,9 @@ default_state = {
     "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0,
-    "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
-    "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
-    "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
+    "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_miete_monat": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, 
+    "vac_rate": 0.02, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
+    "inst_sqm": 12.0, "mgt_monat": 30.0, "capex_j3": 0.0, "capex_j6": 0.0,
     "tax_rate": 0.42, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
     "cost_inc": 2.0, "val_inc": 1.5, "wacc": 6.0, "exit_cost": 2.0
 }
@@ -827,6 +856,7 @@ if not st.session_state["authenticated"]:
             st.session_state["obj_name"] = ""
             st.session_state["ist_miete_monat"] = 0.0
             st.session_state["ist_sqm"] = 0.0
+            st.session_state["target_miete_monat"] = 0.0
             st.session_state["target_sqm"] = 0.0
             st.session_state["notar_p"] = 2.0
             st.session_state["makler_p"] = 3.57
@@ -907,7 +937,7 @@ if nav_choice == "Pipeline":
                 'park': d.get("park", 0), 'vac_rate': d.get("vac_rate", 0.02),
                 'qm': d.get("qm", 0), 'hausgeld': d.get("hausgeld", 0),
                 'hausgeld_nicht_umlegbar': d.get("hausgeld_nicht_umlegbar", 0),
-                'inst_sqm': d.get("inst_sqm", 10), 'mgt_monat': d.get("mgt_monat", 25),
+                'inst_sqm': d.get("inst_sqm", 12.0), 'mgt_monat': d.get("mgt_monat", 30.0),
                 'capex_j3': d.get("capex_j3", 0), 'capex_j6': d.get("capex_j6", 0),
                 'tax_rate': d.get("tax_rate", 0.42), 'afa_model': d.get("afa_model", "1_Linear_Standard"),
                 'afa_lin': d.get("afa_lin", 2.0)/100, 'miet_inc': d.get("miet_inc", 1.5)/100,
@@ -1001,13 +1031,21 @@ elif nav_choice == "Analyse":
                             if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
                             
                             if ai_data.get("ist_miete_monat"):
-                                st.session_state["ist_miete_monat"] = float(ai_data["ist_miete_monat"])
+                                monat_val = float(ai_data["ist_miete_monat"])
+                                st.session_state["ist_miete_monat"] = monat_val
+                                st.session_state["target_miete_monat"] = monat_val
                                 if ai_data.get("wohnflaeche") and float(ai_data["wohnflaeche"]) > 0:
-                                    st.session_state["ist_sqm"] = float(ai_data["ist_miete_monat"]) / float(ai_data["wohnflaeche"])
+                                    sqm_val = monat_val / float(ai_data["wohnflaeche"])
+                                    st.session_state["ist_sqm"] = sqm_val
+                                    st.session_state["target_sqm"] = sqm_val
                             elif ai_data.get("ist_miete_sqm"): 
-                                st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
+                                sqm_val = float(ai_data["ist_miete_sqm"])
+                                st.session_state["ist_sqm"] = sqm_val
+                                st.session_state["target_sqm"] = sqm_val
                                 if ai_data.get("wohnflaeche"):
-                                    st.session_state["ist_miete_monat"] = float(ai_data["ist_miete_sqm"]) * float(ai_data["wohnflaeche"])
+                                    monat_val = sqm_val * float(ai_data["wohnflaeche"])
+                                    st.session_state["ist_miete_monat"] = monat_val
+                                    st.session_state["target_miete_monat"] = monat_val
                                     
                             if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
                             if ai_data.get("bundesland") and str(ai_data["bundesland"]) in GRUNDERWERBSTEUER_MAP: 
@@ -1124,17 +1162,50 @@ elif nav_choice == "Analyse":
 
         # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
-            st.number_input("Ziel-Kaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f")
+            st.markdown("**Zielmiete (Soll-Miete)**")
             
-            current_target = st.session_state.get("target_sqm", 0.0)
-            current_ist = st.session_state.get("ist_sqm", 0.0)
-            if current_target == 0.0 or current_target == current_ist:
-                st.caption("Automatisch IST-Kaltmiete, falls nicht abgeändert.")
-                
-            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
-            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
-            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
-            st.slider("Leerstandsquote (%)", 0.0, 0.10, key="vac_rate", step=0.01)
+            # Auto-sync Target Rent if it is currently 0
+            if st.session_state.get("target_sqm", 0.0) == 0.0 and st.session_state.get("ist_sqm", 0.0) > 0:
+                st.session_state["target_sqm"] = st.session_state["ist_sqm"]
+                st.session_state["target_miete_monat"] = st.session_state["ist_miete_monat"]
+
+            col_zt1, col_zt2 = st.columns(2)
+            col_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=sync_target_rent_from_monat)
+            col_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f", on_change=sync_target_rent_from_sqm)
+            
+            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der 10-Jahres-Projektion die Zielmiete erreicht werden soll.")
+            
+            st.markdown("---")
+            st.markdown("**Bewirtschaftung & Rücklagen**")
+            
+            st.info("""
+            💡 **Hinterlegte Standard-Annahmen (jederzeit anpassbar):**
+            * **Instandhaltungsrücklage (12,00 €/m²/Jahr):** Entspricht 1,00 €/m² pro Monat für laufende Reparaturen & Rücklagen (Standard nach II. BV / Petersscher Formel).
+            * **Verwaltungskosten (30,00 €/Monat):** Übliche Marktpauschale für Fremd- bzw. Sondereigentumsverwaltung (SEV) pro Wohneinheit.
+            * **Leerstandsrisiko (2,0 %):** Entspricht statistisch ca. 1 Woche Mietausfall/Leerstand alle 2 Jahre bei Mieterwechsel.
+            """)
+
+            st.number_input(
+                "Instandhaltung (€/m²/Jahr)", 
+                key="inst_sqm", 
+                step=1.0, 
+                format="%.2f",
+                help="Standard: 12,00 €/m²/Jahr (entspricht 1,00 €/m²/Monat)"
+            )
+            st.number_input(
+                "Verwaltung (€/Monat)", 
+                key="mgt_monat", 
+                step=5.0, 
+                format="%.2f",
+                help="Standard: 30,00 €/Monat pro Wohneinheit"
+            )
+            st.slider(
+                "Leerstandsquote (%)", 
+                0.0, 0.10, 
+                key="vac_rate", 
+                step=0.01,
+                help="Standard: 0,02 (2,0 %)"
+            )
 
         # 4. STEUERN & MAKRO
         with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
