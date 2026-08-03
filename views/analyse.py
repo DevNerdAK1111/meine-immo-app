@@ -131,8 +131,33 @@ def render_analyse_view(sb_client):
 
         with st.expander("4. Steuern & Makro", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
-            st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
-            st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f")
+            
+            # Saubere Darstellung ohne Unterstriche für das AfA-Modell
+            afa_options = [
+                "Linear Standard", 
+                "Degressiv (Paragraph 7 Abs. 5a EStG)", 
+                "Sonder-AfA (Paragraph 7b EStG)", 
+                "Denkmal-AfA (Paragraph 7h/7i EStG)"
+            ]
+            afa_map_to_internal = {
+                "Linear Standard": "1_Linear_Standard",
+                "Degressiv (Paragraph 7 Abs. 5a EStG)": "2_Degressiv_§7_5a",
+                "Sonder-AfA (Paragraph 7b EStG)": "3_Sonder_AfA_§7b",
+                "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i"
+            }
+            afa_map_to_display = {v: k for k, v in afa_map_to_internal.items()}
+            
+            current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
+            current_display = afa_map_to_display.get(current_afa, "Linear Standard")
+            
+            selected_display = st.selectbox("AfA-Modell", afa_options, index=afa_options.index(current_display) if current_display in afa_options else 0)
+            internal_afa_model = afa_map_to_internal[selected_display]
+            st.session_state["afa_model"] = internal_afa_model
+            
+            # Zeige linearen AfA-Satz (Standard 2.0%) nur an, wenn linear ausgewählt ist
+            if internal_afa_model == "1_Linear_Standard":
+                st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
+            
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
 
@@ -143,7 +168,6 @@ def render_analyse_view(sb_client):
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
     
-    # 1. Vollständiges input_data Dictionary mit absolut ALLEN Feldern
     input_data = {
         'obj_name': st.session_state.get("obj_name", ""),
         'objektart': st.session_state.get("objektart", "Eigentumswohnung"),
@@ -195,7 +219,6 @@ def render_analyse_view(sb_client):
         'grund_anteil': st.session_state.get("grund_anteil", 0.20)
     }
 
-    # 2. calc_data skaliert die Prozentwerte für die Berechnungsfunktionen
     calc_data = {
         'kaufpreis': input_data['kaufpreis'], 'sanierung': input_data['sanierung'],
         'bundesland': input_data['bundesland'], 'stadt': input_data['stadt'], 'stadtteil': input_data['stadtteil'],
