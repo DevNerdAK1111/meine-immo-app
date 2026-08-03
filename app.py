@@ -346,20 +346,19 @@ STRATEGIES = {
 # -----------------------------------------------------------------------------
 # CALLBACK HELPERS & SMART DEFAULTS (BAUJAHR & OBJEKTART LOGIC)
 # -----------------------------------------------------------------------------
-def update_smart_defaults():
-    bj = int(st.session_state.get("baujahr", 2000))
-    obj = str(st.session_state.get("objektart", "Eigentumswohnung"))
-    
+def get_smart_defaults(baujahr, objektart):
+    bj = int(baujahr) if baujahr else 2000
+    obj = str(objektart) if objektart else "Eigentumswohnung"
     age = max(0, 2026 - bj)
     
-    if "Mehrfamilienhaus" in obj or "Einfamilienhaus" in obj or "Zweifamilienhaus" in obj or "Reihenhaus" in obj or "Wohn- und Geschäftshaus" in obj:
+    if any(k in obj for k in ["Mehrfamilienhaus", "Einfamilienhaus", "Zweifamilienhaus", "Reihenhaus", "Wohn- und Geschäftshaus"]):
         category = "MFH"
     elif "Gewerbe" in obj:
         category = "GEWERBE"
     else:
         category = "ETW"
         
-    # 1. INSTANDHALTUNG (€/m²/Jahr)
+    # Instandhaltung (€/m²/Jahr)
     if age < 5:
         inst = 7.0 if category == "ETW" else (10.0 if category == "MFH" else 6.0)
     elif age <= 15:
@@ -369,7 +368,7 @@ def update_smart_defaults():
     else:
         inst = 16.0 if category == "ETW" else (24.0 if category == "MFH" else 14.0)
         
-    # 2. VERWALTUNG (€/Monat)
+    # Verwaltung (€/Monat)
     if "Mikroapartment" in obj:
         mgt = 45.0
     elif category == "MFH":
@@ -379,17 +378,24 @@ def update_smart_defaults():
     else:
         mgt = 30.0
         
-    # 3. LEERSTANDSQUOTE (%)
+    # Leerstandsquote (% als float, z. B. 2.0 für 2%)
     if "Mikroapartment" in obj:
-        vac = 0.04
+        vac = 4.0
     elif category == "GEWERBE":
-        vac = 0.075
+        vac = 7.5
     else:
-        vac = 0.02
+        vac = 2.0
         
+    return inst, mgt, vac
+
+def update_smart_defaults():
+    bj = st.session_state.get("baujahr", 2000)
+    obj = st.session_state.get("objektart", "Eigentumswohnung")
+    inst, mgt, vac = get_smart_defaults(bj, obj)
+    
     st.session_state["inst_sqm"] = inst
     st.session_state["mgt_monat"] = mgt
-    st.session_state["vac_rate"] = vac
+    st.session_state["vac_rate_pct"] = vac
 
 def sync_rent_from_monat():
     qm = st.session_state.get("qm", 0.0)
@@ -796,9 +802,9 @@ default_state = {
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_miete_monat": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, 
-    "vac_rate": 0.02, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
+    "vac_rate_pct": 2.0, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
     "inst_sqm": 12.0, "mgt_monat": 30.0, "capex_j3": 0.0, "capex_j6": 0.0,
-    "tax_rate": 0.42, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
+    "tax_rate_pct": 42.0, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
     "cost_inc": 2.0, "val_inc": 1.5, "wacc": 6.0, "exit_cost": 2.0
 }
 
@@ -806,7 +812,7 @@ for k, v in default_state.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ENFORCE DEFAULT PERCENTAGES & SMART DEFAULTS IF UNSET
+# ENFORCE DEFAULT PERCENTAGES & INITIAL SMART DEFAULTS IF NEEDED
 if st.session_state.get("notar_p", 0.0) == 0.0:
     st.session_state["notar_p"] = 2.00
 if st.session_state.get("makler_p", 0.0) == 0.0:
@@ -977,12 +983,12 @@ if nav_choice == "Pipeline":
                 'sondertilg': d.get("sondertilg", 0), 'ist_sqm': d.get("ist_sqm", 0),
                 'target_sqm': d.get("target_sqm", 0) if d.get("target_sqm", 0) > 0 else d.get("ist_sqm", 0),
                 'adj_year': d.get("adj_year", 3),
-                'park': d.get("park", 0), 'vac_rate': d.get("vac_rate", 0.02),
+                'park': d.get("park", 0), 'vac_rate': d.get("vac_rate_pct", 2.0)/100,
                 'qm': d.get("qm", 0), 'hausgeld': d.get("hausgeld", 0),
                 'hausgeld_nicht_umlegbar': d.get("hausgeld_nicht_umlegbar", 0),
                 'inst_sqm': d.get("inst_sqm", 12.0), 'mgt_monat': d.get("mgt_monat", 30.0),
                 'capex_j3': d.get("capex_j3", 0), 'capex_j6': d.get("capex_j6", 0),
-                'tax_rate': d.get("tax_rate", 0.42), 'afa_model': d.get("afa_model", "1_Linear_Standard"),
+                'tax_rate': d.get("tax_rate_pct", 42.0)/100, 'afa_model': d.get("afa_model", "1_Linear_Standard"),
                 'afa_lin': d.get("afa_lin", 2.0)/100, 'miet_inc': d.get("miet_inc", 1.5)/100,
                 'cost_inc': d.get("cost_inc", 2.0)/100, 'val_inc': d.get("val_inc", 1.5)/100,
                 'wacc': d.get("wacc", 6.0)/100, 'exit_cost': d.get("exit_cost", 2.0)/100,
@@ -1229,12 +1235,15 @@ elif nav_choice == "Analyse":
             curr_obj = st.session_state.get("objektart", "Eigentumswohnung")
             curr_age = max(0, 2026 - curr_bj)
             
+            # Calculation of defaults based on current state
+            smart_inst, smart_mgt, smart_vac = get_smart_defaults(curr_bj, curr_obj)
+            
             st.info(f"""
-            💡 **Dynamische Standard-Empfehlung für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):**
-            * **Instandhaltungsrücklage:** Staffelung nach Alter & Gebäudekomplexität (II. BV / Peterssche Formel).
-            * **Verwaltungskosten:** Marktgerechte Verwaltungspauschale für den ausgewählten Gebäudetyp.
-            * **Leerstandsrisiko:** Statistisches Fluktuations- und Leerstandsrisiko.
-            *(Alle Felder sind unten weiterhin individuell anpassbar)*
+            💡 **Empfohlener Standard für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):**
+            * **Instandhaltungsrücklage:** **{fmt_de(smart_inst, 2)} €/m²/Jahr** *(berechnet nach Baualter & Typ)*
+            * **Verwaltungskosten:** **{fmt_eur(smart_mgt)}/Monat** *(Branchenstandard für {curr_obj})*
+            * **Leerstandsquote:** **{fmt_pct(smart_vac)}** *(statistischer Risikowert)*
+            *(Alle Felder unten sind frei anpassbar)*
             """)
 
             st.number_input(
@@ -1253,15 +1262,16 @@ elif nav_choice == "Analyse":
             )
             st.slider(
                 "Leerstandsquote (%)", 
-                0.0, 0.10, 
-                key="vac_rate", 
-                step=0.01,
+                0.0, 10.0, 
+                key="vac_rate_pct", 
+                step=0.5,
+                format="%.1f %%",
                 help="Kalkulatorischer Mietausfall durch Mieterwechsel."
             )
 
         # 4. STEUERN & MAKRO
         with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
-            st.slider("Grenzsteuersatz (%)", 0.0, 0.50, key="tax_rate", step=0.01)
+            st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
             st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
@@ -1288,12 +1298,12 @@ elif nav_choice == "Analyse":
         'sondertilg': st.session_state["sondertilg"], 'ist_sqm': st.session_state["ist_sqm"],
         'target_sqm': target_sqm_resolved, 
         'adj_year': st.session_state["adj_year"],
-        'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate"],
+        'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate_pct"] / 100,
         'qm': st.session_state["qm"], 'hausgeld': st.session_state["hausgeld"],
         'hausgeld_nicht_umlegbar': st.session_state["hausgeld_nicht_umlegbar"],
         'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
         'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
-        'tax_rate': st.session_state["tax_rate"], 'afa_model': st.session_state["afa_model"],
+        'tax_rate': st.session_state["tax_rate_pct"] / 100, 'afa_model': st.session_state["afa_model"],
         'afa_lin': st.session_state["afa_lin"] / 100, 'miet_inc': st.session_state["miet_inc"] / 100,
         'cost_inc': st.session_state["cost_inc"] / 100, 'val_inc': st.session_state["val_inc"] / 100,
         'wacc': st.session_state["wacc"] / 100, 'exit_cost': st.session_state["exit_cost"] / 100,
