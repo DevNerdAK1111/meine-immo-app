@@ -657,7 +657,7 @@ default_state = {
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
     "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0, "kfw_grant": 0.0, "sondertilg": 0.0,
     "ist_sqm": 0.0, "target_sqm": 0.0, "adj_year": 3, "park": 0.0, "vac_rate": 0.02,
-    "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0, "instandhaltung_ruecklage": 0.0,
+    "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
     "inst_sqm": 10.0, "mgt_monat": 25.0, "capex_j3": 0.0, "capex_j6": 0.0,
     "tax_rate": 0.42, "afa_model": "1_Linear_Standard", "afa_lin": 2.0, "miet_inc": 1.5,
     "cost_inc": 2.0, "val_inc": 1.5, "wacc": 6.0, "exit_cost": 2.0
@@ -928,21 +928,29 @@ elif nav_choice == "Analyse":
             st.number_input("Baujahr", key="baujahr", step=1)
             st.number_input("Ist-Kaltmiete (€/m²) *", key="ist_sqm", step=0.50)
             
+            # HAUPTFELD HAUSGELD
             st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0)
-            st.number_input("Davon nicht umlegbar (€/Monat)", key="hausgeld_nicht_umlegbar", step=5.0, help="Eigentümer-Anteil inkl. WEG-Verwaltung und Instandhaltungsrücklage")
-            st.number_input("Davon Instandhaltungsrücklage (€/Monat)", key="instandhaltung_ruecklage", step=5.0, help="Teil des nicht umlegbaren Hausgeldes für die WEG-Instandhaltungsrücklage")
+            
+            # UNTERGEORDNETE DETAILS ZUR HAUSGELD-AUFTEILUNG
+            with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
+                st.number_input(
+                    "Davon nicht umlegbar (€/Monat)", 
+                    key="hausgeld_nicht_umlegbar", 
+                    step=5.0, 
+                    help="Eigentümer-Anteil (WEG-Verwaltung + Instandhaltungsrücklage). Falls 0,00 €, werden automatisch 25 % angesetzt."
+                )
 
-            # DYNAMISCHER EXPERTEN-HINWEIS ZUR HAUSGELD-AUFTEILUNG
+            # DYNAMISCHER HINWEIS ZUR AUFTEILUNG
             hg_tot = st.session_state.get("hausgeld", 0.0)
             hg_nu = st.session_state.get("hausgeld_nicht_umlegbar", 0.0)
             if hg_tot > 0:
                 if hg_nu <= 0:
                     eff_nu = hg_tot * 0.25
                     eff_um = hg_tot * 0.75
-                    st.caption(f"💡 **Experten-Annahme (25% nicht umlegbar):** ca. **{fmt_eur(eff_um)}/M** umlegbar (Mieter) & **{fmt_eur(eff_nu)}/M** nicht umlegbar (Eigentümer).")
+                    st.caption(f"💡 **Standard (25 % nicht umlegbar):** ca. **{fmt_eur(eff_um)}/M** Mieter | **{fmt_eur(eff_nu)}/M** Eigentümer.")
                 else:
                     eff_um = max(0.0, hg_tot - hg_nu)
-                    st.caption(f"📊 **Aufteilung:** **{fmt_eur(eff_um)}/M** umlegbar (Mieter) & **{fmt_eur(hg_nu)}/M** nicht umlegbar (Eigentümer).")
+                    st.caption(f"📊 **Aufteilung:** **{fmt_eur(eff_um)}/M** Mieter | **{fmt_eur(hg_nu)}/M** Eigentümer.")
 
             st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0)
 
@@ -1011,7 +1019,6 @@ elif nav_choice == "Analyse":
         'park': st.session_state["park"], 'vac_rate': st.session_state["vac_rate"],
         'qm': st.session_state["qm"], 'hausgeld': st.session_state["hausgeld"],
         'hausgeld_nicht_umlegbar': st.session_state["hausgeld_nicht_umlegbar"],
-        'instandhaltung_ruecklage': st.session_state["instandhaltung_ruecklage"],
         'inst_sqm': st.session_state["inst_sqm"], 'mgt_monat': st.session_state["mgt_monat"],
         'capex_j3': st.session_state["capex_j3"], 'capex_j6': st.session_state["capex_j6"],
         'tax_rate': st.session_state["tax_rate"], 'afa_model': st.session_state["afa_model"],
