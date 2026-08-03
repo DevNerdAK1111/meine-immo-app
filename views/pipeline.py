@@ -11,12 +11,11 @@ def render_pipeline_view(sb_client):
 
     projects = db_get_projects(sb_client, st.session_state["user_email"])
     
-    # Optionaler Export-Button für Backups bleibt diskret im Hintergrund
-    with st.expander("🛠️ Daten-Export / Backup", expanded=False):
+    with st.expander("Daten-Export / Backup", expanded=False):
         if projects:
             projects_json = json.dumps(projects, default=str, ensure_ascii=False, indent=2)
             st.download_button(
-                label="📥 Alle Projekte als JSON-Backup herunterladen",
+                label="Alle Projekte als JSON-Backup herunterladen",
                 data=projects_json,
                 file_name="valuon_estate_backup.json",
                 mime="application/json",
@@ -71,9 +70,8 @@ def render_pipeline_view(sb_client):
             
         df_display = pd.DataFrame(table_rows)
         
-        st.markdown("💡 *Klicke direkt auf eine Zeile in der Tabelle, um das Objekt auszuwählen:*")
+        st.markdown("*Klicke direkt auf eine Zeile in der Tabelle, um das Objekt auszuwählen:*")
         
-        # Interaktive Tabelle mit Zeilenauswahl (verhindert horizontales Scrollen durch saubere Spaltenbreiten)
         event = st.dataframe(
             df_display,
             use_container_width=True,
@@ -91,17 +89,17 @@ def render_pipeline_view(sb_client):
             st.markdown(f"**Ausgewähltes Objekt:** `{p_target['project_name']}`")
             
             col_act1, col_act2 = st.columns(2)
-            if col_act1.button("🚀 In Analyse-Rechner laden", type="primary", use_container_width=True):
+            if col_act1.button("In Analyse-Rechner laden", type="primary", use_container_width=True):
                 for k, v in p_target["input_data"].items():
                     st.session_state[k] = v
                 st.session_state["nav_choice"] = "Analyse"
                 st.session_state["trigger_analysis"] = True
                 st.rerun()
 
-            if col_act2.button("🗑️ Projekt aus Datenbank löschen", use_container_width=True):
+            if col_act2.button("Projekt aus Datenbank löschen", use_container_width=True):
                 db_delete_project(sb_client, p_target["id"])
                 st.rerun()
         else:
-            st.info("👆 Bitte klicke oben in der Tabelle auf ein Objekt, um es zu laden oder zu löschen.")
+            st.info("Bitte klicke oben in der Tabelle auf ein Objekt, um es zu laden oder zu löschen.")
     else:
         st.info("Bisher keine Objekte in der Datenbank gespeichert.")
