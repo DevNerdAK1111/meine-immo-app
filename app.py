@@ -118,7 +118,7 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Metric Card System */
+    /* Metric Card System with Custom Hover Tooltips */
     .metric-card {
         border-radius: 12px;
         padding: 18px;
@@ -126,14 +126,96 @@ st.markdown("""
         border: 1px solid #D4C9B8;
         background-color: #ffffff;
         box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        position: relative;
+        overflow: visible !important;
     }
     .metric-green { border-left: 4px solid #13381A; color: #13381A; }
     .metric-yellow { border-left: 4px solid #A37841; color: #5a4223; }
     .metric-red { border-left: 4px solid #8b3a2b; color: #6b2e22; }
     
-    .metric-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 4px; }
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    .metric-title { 
+        font-size: 0.78rem; 
+        font-weight: 600; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px; 
+        opacity: 0.75; 
+    }
     .metric-value { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
     .metric-status { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
+    
+    /* Interactive Tooltip CSS */
+    .tooltip-container {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+    }
+    
+    .tooltip-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background-color: #F4EFE6;
+        color: #A37841;
+        border: 1px solid #D4C9B8;
+        font-size: 0.7rem;
+        font-weight: 700;
+        font-family: serif;
+        font-style: italic;
+        transition: all 0.2s ease;
+    }
+    
+    .tooltip-container:hover .tooltip-icon {
+        background-color: #13381A;
+        color: #F7F4EC;
+        border-color: #13381A;
+    }
+    
+    .tooltip-box {
+        visibility: hidden;
+        width: 260px;
+        background-color: #2B2D2F;
+        color: #F7F4EC;
+        text-align: left;
+        border-radius: 10px;
+        padding: 12px 14px;
+        position: absolute;
+        z-index: 99;
+        bottom: 130%;
+        right: 0;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        transform: translateY(6px);
+        font-size: 0.78rem;
+        font-weight: 400;
+        line-height: 1.4;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        border: 1px solid #A37841;
+        pointer-events: none;
+    }
+
+    .tooltip-box strong {
+        color: #A37841;
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .tooltip-container:hover .tooltip-box {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0);
+    }
     
     /* Section Badges */
     .badge-expose {
@@ -527,7 +609,6 @@ if not st.session_state["authenticated"]:
     col_landing1, col_landing2 = st.columns([1.3, 1])
 
     with col_landing1:
-        # Editorial Multi-Image Grid / Eye Catcher
         col_img1, col_img2 = st.columns(2)
         with col_img1:
             st.image("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80", use_container_width=True)
@@ -598,7 +679,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# MAIN APPLICATION HEADER & TOP NAVIGATION (ENLARGED BRAND TITLE)
+# MAIN APPLICATION HEADER & TOP NAVIGATION
 # -----------------------------------------------------------------------------
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
@@ -713,12 +794,10 @@ elif nav_choice == "Analyse":
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
         
-        # --- VERSTECKTE KI-FUNKTION IN EINEM EXPANDER (BETA) ---
+        # VERSTECKTER KI-IMPORT IN EXPANDER (BETA)
         with st.expander("🤖 KI-gestützter Import (Beta)", expanded=False):
             active_api_key = get_gemini_api_key()
-            
             import_type = st.radio("Quellformat wählen:", ["Web-Link (URL)", "PDF Exposé", "Text manuell"])
-            
             extracted_text_to_analyze = ""
             
             if import_type == "PDF Exposé":
@@ -751,10 +830,8 @@ elif nav_choice == "Analyse":
                                 st.session_state["obj_name"] = str(ai_data["objektname"])
                             st.success("Objektdaten erfolgreich übernommen.")
                             st.rerun()
-        # ---------------------------------------------------------
 
         st.divider()
-        
         st.markdown("### Parametrisierung")
         
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
@@ -859,14 +936,82 @@ elif nav_choice == "Analyse":
         status_roe, label_roe = get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])
         status_dscr, label_dscr = get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])
 
+        # KPI CARDS WITH CUSTOM HOVER TOOLTIPS
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f'<div class="metric-card metric-{status_cf}"><div class="metric-title">Cashflow (netto)</div><div class="metric-value">{val_cf:,.2f} €/M</div><div class="metric-status">{label_cf}</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="metric-card metric-{status_rendite}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{val_rendite:.2f} %</div><div class="metric-status">{label_rendite}</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="metric-card metric-{status_roe}"><div class="metric-title">Eigenkapitalrendite</div><div class="metric-value">{val_roe:.2f} %</div><div class="metric-status">{label_roe}</div></div>', unsafe_allow_html=True)
-        c4.markdown(f'<div class="metric-card metric-{status_dscr}"><div class="metric-title">DSCR Schuldendienst</div><div class="metric-value">{val_dscr:.2f}</div><div class="metric-status">{label_dscr}</div></div>', unsafe_allow_html=True)
+        
+        c1.markdown(f'''
+        <div class="metric-card metric-{status_cf}">
+            <div class="metric-header">
+                <span class="metric-title">Cashflow (netto)</span>
+                <div class="tooltip-container">
+                    <span class="tooltip-icon">i</span>
+                    <div class="tooltip-box">
+                        <strong>Bedeutung & Relevanz</strong>
+                        Monatlicher Überschuss nach Abzug aller Bewirtschaftungskosten, Kreditraten (Zins & Tilgung) und Steuern.<br><br>
+                        <em>Warum entscheidend?</em> Sichert Ihre laufende Liquidität und verhindert ungewollte Nachzahlungen aus dem Privatvermögen.
+                    </div>
+                </div>
+            </div>
+            <div class="metric-value">{val_cf:,.2f} €/M</div>
+            <div class="metric-status">{label_cf}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        c2.markdown(f'''
+        <div class="metric-card metric-{status_rendite}">
+            <div class="metric-header">
+                <span class="metric-title">Bruttomietrendite</span>
+                <div class="tooltip-container">
+                    <span class="tooltip-icon">i</span>
+                    <div class="tooltip-box">
+                        <strong>Bedeutung & Relevanz</strong>
+                        Verhältnis der jährlichen Bruttokaltmiete zum reinen Kaufpreis des Objekts.<br><br>
+                        <em>Warum entscheidend?</em> Erlaubt eine erste Standort- und Markt-Einschätzung, blendet jedoch Nebenkosten und Finanzierungsstruktur aus.
+                    </div>
+                </div>
+            </div>
+            <div class="metric-value">{val_rendite:.2f} %</div>
+            <div class="metric-status">{label_rendite}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        c3.markdown(f'''
+        <div class="metric-card metric-{status_roe}">
+            <div class="metric-header">
+                <span class="metric-title">Eigenkapitalrendite</span>
+                <div class="tooltip-container">
+                    <span class="tooltip-icon">i</span>
+                    <div class="tooltip-box">
+                        <strong>Bedeutung & Relevanz</strong>
+                        Prozentuale Verzinsung Ihres tatsächlich eingebrachten Eigenkapitals bezogen auf den Jahres-Cashflow.<br><br>
+                        <em>Warum entscheidend?</em> Zeigt die Effizienz Ihres Kapitals und macht den Hebeleffekt (Leverage-Effekt) der Bankfinanzierung sichtbar.
+                    </div>
+                </div>
+            </div>
+            <div class="metric-value">{val_roe:.2f} %</div>
+            <div class="metric-status">{label_roe}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        c4.markdown(f'''
+        <div class="metric-card metric-{status_dscr}">
+            <div class="metric-header">
+                <span class="metric-title">DSCR Schuldendienst</span>
+                <div class="tooltip-container">
+                    <span class="tooltip-icon">i</span>
+                    <div class="tooltip-box">
+                        <strong>Bedeutung & Relevanz</strong>
+                        Debt Service Coverage Ratio: Verhältnis des Netto-Betriebseinkommens (NOI) zum jährlichen Schuldendienst (Zins + Tilgung).<br><br>
+                        <em>Warum entscheidend?</em> Die Key-Kennzahl für Banken. Ein Wert über 1,20 belegt ausreichend Puffer, um den Kredit auch bei Mietausfällen sicher zu bedienen.
+                    </div>
+                </div>
+            </div>
+            <div class="metric-value">{val_dscr:.2f}</div>
+            <div class="metric-status">{label_dscr}</div>
+        </div>
+        ''', unsafe_allow_html=True)
 
-        # --- VERSTECKTE TABS FÜR DEN START ---
-        # Statt 4 Tabs rufen wir nur die ersten beiden für den Launch ab:
+        # LAUNCH TABS
         tab_dash, tab_plan = st.tabs(["Executive Dashboard", "10-Jahres-Modell"])
 
         with tab_dash:
@@ -900,7 +1045,7 @@ elif nav_choice == "Analyse":
                 "Restschuld": "{:,.0f} €", "Objektwert": "{:,.0f} €", "NAV": "{:,.0f} €", "LTV": "{:.1%}"
             }), use_container_width=True)
 
-        # HIER LIEGEN DIE VERSTECKTEN TABS (CODE BLEIBT ERHALTEN!)
+        # VERSTECKTES MULTI-TAB CODE-SEGMENT (BLEIBT ERHALTEN)
         if False:
             tab_tax, tab_stress = st.tabs(["Steuer-Struktur", "Stresstest"])
             
@@ -924,7 +1069,6 @@ elif nav_choice == "Analyse":
                     new_dscr = df_proj.loc[9, 'NOI'] / (new_rate * 12) if new_rate > 0 else 0
                     refin_data.append({"Sollzins": f"{r*100:.1f} %", "Monatliche Rate": f"{new_rate:,.2f} €", "DSCR": f"{new_dscr:.2f}"})
                 st.table(pd.DataFrame(refin_data))
-        # ---------------------------------------------------------
 
 # =============================================================================
 # MODUL 3: DEAL-VERGLEICH
@@ -935,7 +1079,7 @@ elif nav_choice == "Vergleich":
     
     st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
     
-    # HIER LIEGT DER VERSTECKTE CODE FÜR DEN DEAL-VERGLEICH
+    # VERSTECKER CODE FÜR DEN DEAL-VERGLEICH
     if False:
         projects = db_get_projects(sb_client, st.session_state["user_email"])
         
@@ -996,7 +1140,7 @@ elif nav_choice == "Kaufpreis":
 
     st.info("🚀 **Coming Soon:** Dieses Modul befindet sich aktuell in der Entwicklung und wird in Kürze freigeschaltet. Valuon Estate wächst stetig weiter.")
 
-    # HIER LIEGT DER VERSTECKTE CODE FÜR DEN MAX KAUFPREIS-RECHNER
+    # VERSTECKER CODE FÜR DEN MAX KAUFPREIS-RECHNER
     if False:
         col_g1, col_g2 = st.columns(2)
         
