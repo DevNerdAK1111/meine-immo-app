@@ -108,7 +108,7 @@ with col_h2:
         st.session_state["user_email"] = ""
         st.rerun()
 
-st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=Thread if 'Thread' in globals() else 'div')
+st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
 
 nav_items = ["Pipeline", "Analyse", "Vergleich", "Kaufpreis", "Immobilienwissen", "Einstellungen"]
 nav_cols = st.columns(len(nav_items))
