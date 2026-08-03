@@ -400,13 +400,13 @@ def render_analyse_view(sb_client):
                     }
                     df_s1 = pd.concat([df_s1, pd.DataFrame([tot_s1])], ignore_index=True)
                     
-                    st.dataframe(df_s1.style.format({
+                    st.table(df_s1.style.format({
                         "Mietrendite (brutto)": lambda x: fmt_pct(x*100), 
                         "Kaltmiete (brutto)": lambda x: fmt_eur(x),
                         "Reinertrag (NOI)": lambda x: fmt_eur(x), 
                         "Cashflow (vor St.)": lambda x: fmt_eur(x), 
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True, hide_index=True)
+                    }))
                     
                 with sub_t2:
                     cols_2 = ["Jahr", "Zinsaufwand", "Tilgungsleistung", "Abschreibung (AfA)", "Einkommensteuer", "Cashflow (nach St.)"]
@@ -423,25 +423,25 @@ def render_analyse_view(sb_client):
                     }
                     df_s2 = pd.concat([df_s2, pd.DataFrame([tot_s2])], ignore_index=True)
                     
-                    st.dataframe(df_s2.style.format({
+                    st.table(df_s2.style.format({
                         "Zinsaufwand": lambda x: fmt_eur(x), 
                         "Tilgungsleistung": lambda x: fmt_eur(x),
                         "Abschreibung (AfA)": lambda x: fmt_eur(x), 
                         "Einkommensteuer": lambda x: fmt_eur(x),
                         "Cashflow (nach St.)": lambda x: fmt_eur(x)
-                    }), use_container_width=True, hide_index=True)
+                    }))
                     
                 with sub_t3:
                     cols_3 = ["Jahr", "Restschuld", "Objektwert", "Netto-EK (NAV)", "Beleihungsauslauf (LTV)"]
                     df_s3 = df_display[cols_3].copy()
                     df_s3["Jahr"] = df_s3["Jahr"].astype(str)
                     
-                    st.dataframe(df_s3.style.format({
+                    st.table(df_s3.style.format({
                         "Restschuld": lambda x: fmt_eur(x), 
                         "Objektwert": lambda x: fmt_eur(x),
                         "Netto-EK (NAV)": lambda x: fmt_eur(x), 
                         "Beleihungsauslauf (LTV)": lambda x: fmt_pct(x*100, 1)
-                    }), use_container_width=True, hide_index=True)
+                    }))
                 
                 st.markdown("""
                 <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
