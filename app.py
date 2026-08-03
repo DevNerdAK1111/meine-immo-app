@@ -281,6 +281,18 @@ GRUNDERWERBSTEUER_MAP = {
     "Sachsen": 0.055, "Sachsen-Anhalt": 0.050, "Schleswig-Holstein": 0.065, "Thüringen": 0.065
 }
 
+OBJEKTARTEN = [
+    "Eigentumswohnung",
+    "Einfamilienhaus",
+    "Zweifamilienhaus",
+    "Reihenhaus / Doppelhaushälfte",
+    "Mehrfamilienhaus",
+    "Wohn- und Geschäftshaus",
+    "Mikroapartment / Studentisches Wohnen",
+    "Pflege- / Seniorenimmobilie",
+    "Gewerbeimmobilie / Sonstiges"
+]
+
 STRATEGIES = {
     "Konservativ / Ausgewogen (Standard)": {
         "target_cf": 50.0, "tol_cf": 0.0,
@@ -423,6 +435,9 @@ def analyze_text_with_gemini(api_key, raw_text):
             "ist_miete_sqm": float,
             "hausgeld_monat": float,
             "bundesland": string,
+            "stadt": string,
+            "stadtteil": string,
+            "objektart": string,
             "objektname": string
         }}
 
@@ -651,7 +666,8 @@ if "nav_choice" not in st.session_state:
     st.session_state["nav_choice"] = "Pipeline"
 
 default_state = {
-    "obj_name": "", "bundesland": "Niedersachsen", "kaufpreis": 0.0,
+    "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
+    "bundesland": "Niedersachsen", "kaufpreis": 0.0,
     "qm": 0.0, "baujahr": 2000, "sanierung": 0.0, "grund_anteil": 0.20,
     "notar_p": 1.5, "makler_p": 3.57, "sonst_nk": 1000.0, "disagio_p": 0.0,
     "ek_euro": 0.0, "ek_quote": 0.20, "hb_share": 0.80, "hb_zins": 3.8, "hb_tilg": 2.0, "grace_years": 0,
@@ -835,9 +851,16 @@ if nav_choice == "Pipeline":
             cf_m = calc_p.loc[0, 'CF n. St.'] / 12
             rendite = calc_p.loc[0, 'Bruttomietrendite'] * 100
             
+            loc = d.get("stadt", "")
+            if d.get("stadtteil"):
+                loc += f" ({d.get('stadtteil')})"
+            if not loc:
+                loc = d.get("bundesland", "Unbekannt")
+                
             table_rows.append({
                 "Objektname": p["project_name"],
-                "Standort": d.get("bundesland", "Unbekannt"),
+                "Typ": d.get("objektart", "Eigentumswohnung"),
+                "Standort": loc,
                 "Kaufpreis": fmt_eur(d.get('kaufpreis', 0)),
                 "Fläche": fmt_sqm(d.get('qm', 0)),
                 "Cashflow (netto)": f"{fmt_de(cf_m, 2)} €/M",
@@ -911,8 +934,10 @@ elif nav_choice == "Analyse":
                                 st.session_state["ist_sqm"] = float(ai_data["ist_miete_sqm"])
                                 st.session_state["target_sqm"] = float(ai_data["ist_miete_sqm"])
                             if ai_data.get("hausgeld_monat"): st.session_state["hausgeld"] = float(ai_data["hausgeld_monat"])
-                            if ai_data.get("objektname") and str(ai_data["objektname"]) != "Unbekannt": 
-                                st.session_state["obj_name"] = str(ai_data["objektname"])
+                            if ai_data.get("stadt") and str(ai_data["stadt"]) != "Unbekannt": st.session_state["stadt"] = str(ai_data["stadt"])
+                            if ai_data.get("stadtteil") and str(ai_data["stadtteil"]) != "Unbekannt": st.session_state["stadtteil"] = str(ai_data["stadtteil"])
+                            if ai_data.get("objektart") and str(ai_data["objektart"]) in OBJEKTARTEN: st.session_state["objektart"] = str(ai_data["objektart"])
+                            if ai_data.get("objektname") and str(ai_data["objektname"]) != "Unbekannt": st.session_state["obj_name"] = str(ai_data["objektname"])
                             st.success("Objektdaten erfolgreich übernommen.")
                             st.rerun()
 
@@ -922,6 +947,12 @@ elif nav_choice == "Analyse":
         # DIREKTE SEITENLEISTEN-EINGABEN
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
+            st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
+            
+            c_loc1, c_loc2 = st.columns(2)
+            c_loc1.text_input("Stadt", key="stadt", placeholder="z. B. Hannover")
+            c_loc2.text_input("Stadtteil", key="stadtteil", placeholder="z. B. List")
+            
             st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland")
             st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0)
             st.number_input("Wohnfläche (m²) *", key="qm", step=5.0)
@@ -1005,8 +1036,9 @@ elif nav_choice == "Analyse":
 
     input_data = {
         'kaufpreis': st.session_state["kaufpreis"], 'sanierung': st.session_state["sanierung"],
-        'bundesland': st.session_state["bundesland"], 'notar_proz': st.session_state["notar_p"] / 100,
-        'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
+        'bundesland': st.session_state["bundesland"], 'stadt': st.session_state["stadt"], 'stadtteil': st.session_state["stadtteil"],
+        'objektart': st.session_state["objektart"],
+        'notar_proz': st.session_state["notar_p"] / 100, 'makler_proz': st.session_state["makler_p"] / 100, 'sonst_nk': st.session_state["sonst_nk"],
         'disagio_proz': st.session_state["disagio_p"] / 100, 'ek_euro': st.session_state["ek_euro"],
         'ek_quote': st.session_state["ek_quote"],
         'hb_share': st.session_state["hb_share"], 'hb_zins': st.session_state["hb_zins"] / 100,
@@ -1061,10 +1093,20 @@ elif nav_choice == "Analyse":
                 st.warning(f"⚠️ **Plausibilitäts-Hinweis:** {w}")
 
         obj_display_name = st.session_state['obj_name'] if st.session_state['obj_name'] else "Unbenanntes Objekt"
+        
+        # STANDORT-STRING FÜR DEN HEADER FORMATIEREN
+        loc_str = st.session_state['stadt']
+        if st.session_state['stadtteil']:
+            loc_str += f" ({st.session_state['stadtteil']})"
+        if loc_str:
+            loc_str += f", {st.session_state['bundesland']}"
+        else:
+            loc_str = st.session_state['bundesland']
+
         col_t1, col_t2 = st.columns([3, 1])
         with col_t1:
             st.markdown(f"# {obj_display_name}")
-            st.caption(f"Standort: {st.session_state['bundesland']} | Fläche: {fmt_sqm(st.session_state['qm'])} | Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | Eigenkapital: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
+            st.caption(f"Typ: {st.session_state['objektart']} | Standort: {loc_str} | Fläche: {fmt_sqm(st.session_state['qm'])} | Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | Eigenkapital: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
         with col_t2:
             current_payload = {k: st.session_state[k] for k in default_state.keys()}
             if sb_client and st.button("In Cloud speichern", type="primary", use_container_width=True):
