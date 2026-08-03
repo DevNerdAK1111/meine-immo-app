@@ -132,7 +132,6 @@ def render_analyse_view(sb_client):
         with st.expander("4. Steuern & Makro", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             
-            # Saubere Darstellung ohne Unterstriche für das AfA-Modell
             afa_options = [
                 "Linear Standard", 
                 "Degressiv (Paragraph 7 Abs. 5a EStG)", 
@@ -154,7 +153,6 @@ def render_analyse_view(sb_client):
             internal_afa_model = afa_map_to_internal[selected_display]
             st.session_state["afa_model"] = internal_afa_model
             
-            # Zeige linearen AfA-Satz (Standard 2.0%) nur an, wenn linear ausgewählt ist
             if internal_afa_model == "1_Linear_Standard":
                 st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
             
@@ -274,8 +272,22 @@ def render_analyse_view(sb_client):
                 st.markdown(f"# {obj_name}")
                 st.caption(f"Kaufpreis: {fmt_eur(st.session_state['kaufpreis'])} | EK: {fmt_eur(ek_abs)} ({fmt_pct(ek_quote_calc*100)})")
             with col_t2:
-                if st.button("In Cloud speichern", type="primary", use_container_width=True):
-                    db_save_project(sb_client, st.session_state["user_email"], obj_name, input_data)
+                if st.button("In Datenbank speichern", type="primary", use_container_width=True):
+                    success, msg = db_save_project(sb_client, st.session_state["user_email"], obj_name, input_data)
+                    st.session_state["db_save_status"] = (success, msg)
+                    st.rerun()
+
+            # Stilvolle Erfolgsmeldung im passenden Corporate Design
+            if "db_save_status" in st.session_state:
+                success, msg = st.session_state["db_save_status"]
+                bg_color = "#EBF2EC" if success else "#FDF3F2"
+                border_color = "#13381A" if success else "#8b3a2b"
+                text_color = "#13381A" if success else "#6b2e22"
+                st.markdown(f"""
+                <div style="background-color: {bg_color}; border: 1px solid {border_color}; color: {text_color}; padding: 12px 16px; border-radius: 10px; font-weight: 500; margin-bottom: 20px; font-size: 0.9rem;">
+                    {msg}
+                </div>
+                """, unsafe_allow_html=True)
 
             strat = STRATEGIES[st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")]
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
