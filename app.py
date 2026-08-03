@@ -268,7 +268,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* Small Sub Badge for Individual Euro Amounts */
     .nk-sub-badge {
         background-color: #F4EFE6;
         color: #555759;
@@ -282,7 +281,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* Total Summary Badge */
     .nk-total-badge {
         background-color: #F4EFE6;
         color: #13381A;
@@ -668,7 +666,7 @@ def calc_projection(data, full_repayment=False):
     fk_tot = max(0.0, tot_inv - ek_abs)
     
     kfw_loan = max(0, data['kfw_amt'] - data['kfw_grant'])
-    hb_loan = max(0.0, fk_tot - kfw_loan)  # Hausbank fills the exact remaining gap intelligently
+    hb_loan = max(0.0, fk_tot - kfw_loan)
     
     afa_base = (kp + nk_abs) * (1 - data['grund_anteil'])
     
@@ -733,7 +731,7 @@ def calc_projection(data, full_repayment=False):
                 elif loan_type == "Tilgungsdarlehen":
                     tilg_hb = hb_loan * data['hb_tilg']
                     tilg_hb = min(restschuld_hb, tilg_hb)
-                else: # Endfälliges Darlehen
+                else:
                     tilg_hb = restschuld_hb if (yr == max_yr or (not full_repayment and yr == 10)) else 0.0
         else:
             zins_hb = 0.0
@@ -764,7 +762,6 @@ def calc_projection(data, full_repayment=False):
         
         cf_v_st = noi - zins_tot - tilg_tot
         
-        # CORRECTED AFA CALCULATION (DYNAMIC FOR DEGRESSIVE)
         if data['afa_model'] == "2_Degressiv_§7_5a":
             afa_val = building_book_value * 0.05
             building_book_value = max(0.0, building_book_value - afa_val)
@@ -1095,7 +1092,6 @@ elif nav_choice == "Analyse":
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
         
-        # KI-IMPORT IN EXPANDER (BETA)
         with st.expander("🤖 KI-gestützter Import (Beta)", expanded=False):
             active_api_key = get_gemini_api_key()
             import_type = st.radio("Quellformat wählen:", ["Web-Link (URL)", "PDF Exposé", "Text manuell"])
@@ -1161,7 +1157,6 @@ elif nav_choice == "Analyse":
         st.divider()
         st.markdown("### Parametrisierung")
         
-        # 1. OBJEKTDATEN
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
             st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart", on_change=update_smart_defaults)
@@ -1189,7 +1184,7 @@ elif nav_choice == "Analyse":
                 key="hausgeld", 
                 step=10.0, 
                 format="%.2f",
-                help="Falls keine spezifische Aufteilung eingetragen wird, nimmt die Berechnung automatisch an, dass 75 % umlegbare Betriebskosten (vom Mieter getragen) und 25 % nicht umlegbare Kosten (WEG-Verwaltung + Instandhaltungsrücklage) sind."
+                help="Falls keine spezifische Aufteilung eingetragen wird, nimmt die Berechnung automatisch an, dass 75 % umlegbare Betriebskosten und 25 % nicht umlegbare Kosten sind."
             )
             
             with st.expander("⚙️ Hausgeld-Aufteilung anpassen", expanded=(st.session_state.get("hausgeld_nicht_umlegbar", 0.0) > 0)):
@@ -1197,13 +1192,11 @@ elif nav_choice == "Analyse":
                     "Davon nicht umlegbar (€/Monat)", 
                     key="hausgeld_nicht_umlegbar", 
                     step=5.0, 
-                    format="%.2f",
-                    help="Eigentümer-Anteil (WEG-Verwaltung + Instandhaltungsrücklage). Falls 0,00 €, werden automatisch 25 % angesetzt."
+                    format="%.2f"
                 )
 
             st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0, format="%.2f")
 
-        # 2. FINANZIERUNG & NEBENKOSTEN
         with st.expander("2. Finanzierung & Nebenkosten", expanded=True):
             st.markdown("**Kaufnebenkosten**")
             
@@ -1235,8 +1228,7 @@ elif nav_choice == "Analyse":
             st.selectbox(
                 "Darlehensart",
                 ["Annuitätendarlehen", "Tilgungsdarlehen", "Endfälliges Darlehen"],
-                key="loan_type",
-                help="Annuitätendarlehen: Konstanter Kapitaldienst mit steigendem Tilgungsanteil. Tilgungsdarlehen: Starre Tilgung in € mit sinkender Rate. Endfälliges Darlehen: Nur Zinsen während der Laufzeit."
+                key="loan_type"
             )
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
@@ -1260,9 +1252,8 @@ elif nav_choice == "Analyse":
             est_tot_inv = kp_val + tot_nebenkosten + st.session_state["sanierung"]
             calculated_quote = (ek_input / est_tot_inv * 100) if est_tot_inv > 0 else 0.0
             
-            st.caption(f"💡 Standardmäßig sind die Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital-Richtwert (100%-Finanzierung) hinterlegt. Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
+            st.caption(f"💡 Standardmäßig sind die Kaufnebenkosten (**{fmt_eur(tot_nebenkosten)}**) als Eigenkapital-Richtwert hinterlegt. Rechnerische EK-Quote: **{fmt_pct(calculated_quote)}**.")
 
-        # 3. ZIELMIETE & BEWIRTSCHAFTUNG
         with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
             st.markdown("**Zielmiete (Soll-Miete)**")
             
@@ -1274,48 +1265,18 @@ elif nav_choice == "Analyse":
             col_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=update_target_from_monat)
             col_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.50, format="%.2f", on_change=update_target_from_sqm)
             
-            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10, help="In welchem Jahr der Projektion die Zielmiete erreicht werden soll.")
+            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
             
             st.markdown("---")
-            
             curr_bj = st.session_state.get("baujahr", 2000)
             curr_obj = st.session_state.get("objektart", "Eigentumswohnung")
-            curr_age = max(0, 2026 - curr_bj)
             smart_inst, smart_mgt, smart_vac = get_smart_defaults(curr_bj, curr_obj)
-            
-            help_text_bw = f"""Empfohlener Standard für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):
-• Instandhaltungsrücklage: {fmt_de(smart_inst, 2)} €/m²/Jahr (berechnet nach Baualter & Typ)
-• Verwaltungskosten: {fmt_eur(smart_mgt)}/Monat (Branchenstandard)
-• Leerstandsquote: {fmt_pct(smart_vac)} (statistischer Risikowert)
 
-(Alle Werte unten können von dir frei überschrieben werden)"""
+            st.markdown("**Bewirtschaftung & Rücklagen**")
+            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
+            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
+            st.slider("Leerstandsquote (%)", 0.0, 10.0, key="vac_rate_pct", step=0.5, format="%.1f %%")
 
-            st.markdown("**Bewirtschaftung & Rücklagen**", help=help_text_bw)
-
-            st.number_input(
-                "Instandhaltung (€/m²/Jahr)", 
-                key="inst_sqm", 
-                step=1.0, 
-                format="%.2f",
-                help="Dynamisch angepasst an Baujahr und Gebäudekomplexität."
-            )
-            st.number_input(
-                "Verwaltung (€/Monat)", 
-                key="mgt_monat", 
-                step=5.0, 
-                format="%.2f",
-                help="Monatliche Pauschale für Sondereigentums- bzw. Mietverwaltung."
-            )
-            st.slider(
-                "Leerstandsquote (%)", 
-                0.0, 10.0, 
-                key="vac_rate_pct", 
-                step=0.5,
-                format="%.1f %%",
-                help="Kalkulatorischer Mietausfall durch Mieterwechsel."
-            )
-
-        # 4. STEUERN & MAKRO
         with st.expander("4. Steuern & Makro-Annahmen", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             st.selectbox("AfA-Modell", ["1_Linear_Standard", "2_Degressiv_§7_5a", "3_Sonder_AfA_§7b", "4_Denkmal_§7h_7i"], key="afa_model")
@@ -1445,7 +1406,7 @@ elif nav_choice == "Analyse":
                         <span class="tooltip-icon">i</span>
                         <div class="tooltip-box">
                             <strong>Bedeutung & Relevanz</strong>
-                            Monatlicher Überschuss nach Abzug aller Bewirtschaftungskosten, Kreditraten (Zins & Tilgung) und Steuern.
+                            Monatlicher Überschuss nach Abzug aller Bewirtschaftungskosten, Kreditraten und Steuern.
                         </div>
                     </div>
                 </div>
@@ -1462,7 +1423,7 @@ elif nav_choice == "Analyse":
                         <span class="tooltip-icon">i</span>
                         <div class="tooltip-box">
                             <strong>Bedeutung & Relevanz</strong>
-                            Verhältnis der jährlichen Bruttokaltmiete zum reinen Kaufpreis des Objekts.
+                            Verhältnis der jährlichen Bruttokaltmiete zum Kaufpreis.
                         </div>
                     </div>
                 </div>
@@ -1479,7 +1440,7 @@ elif nav_choice == "Analyse":
                         <span class="tooltip-icon">i</span>
                         <div class="tooltip-box">
                             <strong>Bedeutung & Relevanz</strong>
-                            Prozentuale Verzinsung Ihres tatsächlich eingebrachten Eigenkapitals bezogen auf den Jahres-Cashflow.
+                            Prozentuale Verzinsung Ihres eingebrachten Eigenkapitals.
                         </div>
                     </div>
                 </div>
@@ -1496,7 +1457,7 @@ elif nav_choice == "Analyse":
                         <span class="tooltip-icon">i</span>
                         <div class="tooltip-box">
                             <strong>Bedeutung & Relevanz</strong>
-                            Debt Service Coverage Ratio: Verhältnis des Netto-Betriebseinkommens (NOI) zum jährlichen Schuldendienst.
+                            Debt Service Coverage Ratio: Verhältnis des NOI zum jährlichen Schuldendienst.
                         </div>
                     </div>
                 </div>
@@ -1510,12 +1471,80 @@ elif nav_choice == "Analyse":
             with tab_dash:
                 col_chart1, col_chart2 = st.columns([2, 1])
                 with col_chart1:
-                    st.markdown("### Vermögensentwicklung vs. Restschuld")
+                    st.markdown("### Portfolio & Wertentwicklung")
+                    
+                    # CHART VIEW DROPDOWN SELECTOR FOR THE USER
+                    chart_mode = st.selectbox(
+                        "Grafik-Ansicht wählen:",
+                        [
+                            "1. Vermögensstruktur & NAV (Netto-Eigenkapital)",
+                            "2. Cashflow-Entwicklung (Vor & Nach Steuern)",
+                            "3. Kapitaldienst (Zins- & Tilgungsverlauf)"
+                        ],
+                        key="chart_mode_select",
+                        label_visibility="collapsed"
+                    )
+                    
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Objektwert'], name="Objektwert (€)", line=dict(color="#13381A", width=3)))
-                    fig.add_trace(go.Scatter(x=df_proj['Jahr'], y=df_proj['Restschuld'], name="Restschuld (€)", line=dict(color="#A37841", width=3)))
-                    fig.add_trace(go.Bar(x=df_proj['Jahr'], y=df_proj['NAV'], name="Netto-Eigenkapital (NAV)", marker_color="#2B2D2F", opacity=0.2))
-                    fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=10, b=10))
+                    
+                    if "1." in chart_mode:
+                        fig.add_trace(go.Scatter(
+                            x=df_proj['Jahr'], y=df_proj['Objektwert'], 
+                            name="Objektwert", 
+                            line=dict(color="#13381A", width=3),
+                            hovertemplate="<b>Jahr %{x}</b><br>Objektwert: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=df_proj['Jahr'], y=df_proj['Restschuld'], 
+                            name="Restschuld", 
+                            line=dict(color="#8b3a2b", width=3),
+                            hovertemplate="<b>Jahr %{x}</b><br>Restschuld: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.add_trace(go.Bar(
+                            x=df_proj['Jahr'], y=df_proj['NAV'], 
+                            name="Netto-Eigenkapital (NAV)", 
+                            marker_color="#A37841", opacity=0.85,
+                            hovertemplate="<b>Jahr %{x}</b><br>NAV: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.update_layout(barmode='group')
+                        
+                    elif "2." in chart_mode:
+                        fig.add_trace(go.Bar(
+                            x=df_proj['Jahr'], y=df_proj['CF v. St.'], 
+                            name="Cashflow vor Steuern", 
+                            marker_color="#13381A",
+                            hovertemplate="<b>Jahr %{x}</b><br>CF vor Steuern: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.add_trace(go.Bar(
+                            x=df_proj['Jahr'], y=df_proj['CF n. St.'], 
+                            name="Cashflow nach Steuern", 
+                            marker_color="#A37841",
+                            hovertemplate="<b>Jahr %{x}</b><br>CF nach Steuern: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.update_layout(barmode='group')
+                        
+                    else:
+                        fig.add_trace(go.Bar(
+                            x=df_proj['Jahr'], y=df_proj['Zinsen'], 
+                            name="Zinsaufwand", 
+                            marker_color="#8b3a2b",
+                            hovertemplate="<b>Jahr %{x}</b><br>Zinsen: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.add_trace(go.Bar(
+                            x=df_proj['Jahr'], y=df_proj['Tilgung'], 
+                            name="Tilgungsleistung", 
+                            marker_color="#13381A",
+                            hovertemplate="<b>Jahr %{x}</b><br>Tilgung: %{y:,.0f} €<extra></extra>"
+                        ))
+                        fig.update_layout(barmode='stack')
+
+                    fig.update_layout(
+                        template="plotly_white", 
+                        height=350, 
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        yaxis=dict(tickformat=",.0f", ticksuffix=" €")
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                     
                 with col_chart2:
@@ -1526,7 +1555,8 @@ elif nav_choice == "Analyse":
                         color_discrete_sequence=['#13381A', '#2B2D2F', '#A37841'],
                         hole=0.5
                     )
-                    fig_pie.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
+                    fig_pie.update_traces(hovertemplate="<b>%{label}</b><br>Anteil: %{value:,.0f} € (%{percent})<extra></extra>")
+                    fig_pie.update_layout(height=390, margin=dict(l=10, r=10, t=10, b=10))
                     st.plotly_chart(fig_pie, use_container_width=True)
 
             with tab_plan:
@@ -1578,63 +1608,22 @@ elif nav_choice == "Immobilienwissen":
         with st.expander("📌 Cashflow (netto nach Steuern)", expanded=True):
             st.markdown("""
             **Was ist das?**  
-            Der Netto-Cashflow ist das Geld, das am Monatsende nach Abzug *aller* Kosten (Verwaltung, Instandhaltung, Hausgeld, Zinsen, Tilgung und Einkommensteuer) auf deinem Konto übrig bleibt.
-
-            **Warum ist das wichtig?**  
-            Ein positiver Cashflow baut passives Vermögen auf, ohne dass du monatlich aus eigener Tasche dazuzahlen musst (*„Zuzahlungsimmobilie“*). 
-
-            * **Formel:** `Netto-Kaltmiete - Betriebskosten (nicht umlegbar) - Zins & Tilgung - Steuern`
-            * **Zielwert:** Mindestens **50 € bis 150 € / Monat** Überschuss je Wohneinheit.
+            Der Netto-Cashflow ist das Geld, das am Monatsende nach Abzug *aller* Kosten übrig bleibt.
             """)
 
         with st.expander("📌 Bruttomietrendite vs. Nettomietrendite"):
             st.markdown("""
             **Was ist das?**  
-            Die Rendite setzt den jährlichen Ertrag ins Verhältnis zum Kaufpreis bzw. zu den Gesamtkosten.
-
-            * **Bruttomietrendite:** Schnellcheck für Exposés.  
-              *(Jahreskaltmiete / Kaufpreis) × 100*
-            * **Nettomietrendite:** Viel genauer, da Kaufnebenkosten und Bewirtschaftung eingerechnet werden.  
-              *(Netto-Betriebseinkommen [NOI] / Gesamtinvestition) × 100*
-            """)
-
-        with st.expander("📌 DSCR (Debt Service Coverage Ratio)"):
-            st.markdown("""
-            **Was ist das?**  
-            Der DSCR zeigt, wie gut der Reinertrag des Objekts (NOI) den monatlichen Bankkredit (Zins + Tilgung) deckt.
-
-            **Richtwerte:**
-            * **Unter 1,0:** Der Ertrag reicht nicht aus, um den Kredit zu zahlen.
-            * **Ab 1,20 (Empfehlung):** Die Bank bewertet den Kredit als sicher (20 % Puffer).
+            Die Rendite setzt den jährlichen Ertrag ins Verhältnis zum Kaufpreis.
             """)
 
     with w_tab2:
         st.markdown("### Die 5 teuersten Anfängerfehler")
-        
-        st.error("""
-        **Fehler 1: Hausgeld nicht in umlegbar & nicht umlegbar trennen**  
-        Nur der **nicht umlegbare Teil** (WEG-Verwalter + Instandhaltungsrücklage) ist eine echte Ausgabe für dich als Eigentümer!
-        """)
-
-        st.warning("""
-        **Fehler 2: Die 15 %-Hürde bei der Sanierung (§ 6 Abs. 1 Nr. 1a EStG) ignorieren**  
-        Wer in den ersten 3 Jahren nach Kauf mehr als 15 % des Gebäude-Kaufpreises netto sanierte, muss diese Kosten über 33–50 Jahre langwierig abschreiben.
-        """)
+        st.error("**Fehler 1: Hausgeld nicht in umlegbar & nicht umlegbar trennen**")
 
     with w_tab3:
         st.markdown("### Fundamentale Investment-Regeln")
-        
-        col_w1, col_w2 = st.columns(2)
-        with col_w1:
-            st.markdown("""
-            #### 1. Der Eigenkapital-Hebel (Leverage-Effekt)
-            Immobilien sind die einzige Anlageklasse, bei der dir Banken 80–90 % des Kapitals zu sehr niedrigen Zinsen leihen.
-            """)
-        with col_w2:
-            st.markdown("""
-            #### 2. Die 10-Jahres-Spekulationsfrist (§ 23 EStG)
-            Immobilien im Privatvermögen können nach einer Haltedauer von **10 Jahren komplett steuerfrei** verkauft werden.
-            """)
+        st.markdown("#### 1. Der Eigenkapital-Hebel (Leverage-Effekt)")
 
 # =============================================================================
 # MODUL 6: EINSTELLUNGEN
@@ -1676,5 +1665,4 @@ elif nav_choice == "Einstellungen":
         st.markdown("### Investment-Profil")
         chosen_strat = st.selectbox("Aktive Strategie", list(STRATEGIES.keys()), index=0)
         st.session_state["selected_strategy_name"] = chosen_strat
-        
         st.json(STRATEGIES[chosen_strat])
