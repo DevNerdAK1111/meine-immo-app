@@ -27,7 +27,7 @@ load_valuon_styles()
 default_state = {
     "authenticated": False, "user_email": "", "gemini_api_key": "",
     "selected_strategy_name": "Konservativ / Ausgewogen (Standard)",
-    "nav_choice": "Pipeline", "trigger_analysis": False, "target_auto_sync": True,
+    "nav_choice": "Objekt Datenbank", "trigger_analysis": False, "target_auto_sync": True,
     "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
     "bundesland": "Niedersachsen", "kaufpreis": 0.0, "qm": 0.0, "baujahr": 2000,
     "sanierung": 0.0, "grund_anteil": 0.20, "grwt_p": 5.0, "notar_p": 2.0,
@@ -77,7 +77,7 @@ if not st.session_state["authenticated"]:
     with col_l2:
         st.markdown("<div class='valuon-card'>", unsafe_allow_html=True)
         st.markdown("### Zugangsportal")
-        if st.button("🛠️ Als Entwickler einloggen (Permanenter Modus)", type="primary", use_container_width=True):
+        if st.button("Als Entwickler einloggen (Permanenter Modus)", type="primary", use_container_width=True):
             st.session_state["authenticated"] = True
             st.session_state["user_email"] = "developer@valuon-estate.de"
             st.rerun()
