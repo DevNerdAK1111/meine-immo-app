@@ -344,8 +344,53 @@ STRATEGIES = {
 }
 
 # -----------------------------------------------------------------------------
-# CALLBACK HELPERS FOR SAFE STATE SYNCHRONIZATION
+# CALLBACK HELPERS & SMART DEFAULTS (BAUJAHR & OBJEKTART LOGIC)
 # -----------------------------------------------------------------------------
+def update_smart_defaults():
+    bj = int(st.session_state.get("baujahr", 2000))
+    obj = str(st.session_state.get("objektart", "Eigentumswohnung"))
+    
+    age = max(0, 2026 - bj)
+    
+    if "Mehrfamilienhaus" in obj or "Einfamilienhaus" in obj or "Zweifamilienhaus" in obj or "Reihenhaus" in obj or "Wohn- und Geschäftshaus" in obj:
+        category = "MFH"
+    elif "Gewerbe" in obj:
+        category = "GEWERBE"
+    else:
+        category = "ETW"
+        
+    # 1. INSTANDHALTUNG (€/m²/Jahr)
+    if age < 5:
+        inst = 7.0 if category == "ETW" else (10.0 if category == "MFH" else 6.0)
+    elif age <= 15:
+        inst = 9.0 if category == "ETW" else (14.0 if category == "MFH" else 8.0)
+    elif age <= 30:
+        inst = 12.0 if category == "ETW" else (18.0 if category == "MFH" else 10.0)
+    else:
+        inst = 16.0 if category == "ETW" else (24.0 if category == "MFH" else 14.0)
+        
+    # 2. VERWALTUNG (€/Monat)
+    if "Mikroapartment" in obj:
+        mgt = 45.0
+    elif category == "MFH":
+        mgt = 20.0
+    elif category == "GEWERBE":
+        mgt = 40.0
+    else:
+        mgt = 30.0
+        
+    # 3. LEERSTANDSQUOTE (%)
+    if "Mikroapartment" in obj:
+        vac = 0.04
+    elif category == "GEWERBE":
+        vac = 0.075
+    else:
+        vac = 0.02
+        
+    st.session_state["inst_sqm"] = inst
+    st.session_state["mgt_monat"] = mgt
+    st.session_state["vac_rate"] = vac
+
 def sync_rent_from_monat():
     qm = st.session_state.get("qm", 0.0)
     if qm > 0:
@@ -354,7 +399,6 @@ def sync_rent_from_monat():
         target_sqm = st.session_state.get("target_sqm", 0.0)
         
         st.session_state["ist_sqm"] = new_sqm
-        # Auto-sync Zielmiete if unset or identical to IST
         if target_sqm == 0.0 or abs(target_sqm - old_ist_sqm) < 0.01:
             st.session_state["target_sqm"] = new_sqm
             st.session_state["target_miete_monat"] = st.session_state.get("ist_miete_monat", 0.0)
@@ -367,7 +411,6 @@ def sync_rent_from_sqm():
         target_monat = st.session_state.get("target_miete_monat", 0.0)
         
         st.session_state["ist_miete_monat"] = new_monat
-        # Auto-sync Zielmiete if unset or identical to IST
         if target_monat == 0.0 or abs(target_monat - old_ist_monat) < 1.0:
             st.session_state["target_miete_monat"] = new_monat
             st.session_state["target_sqm"] = st.session_state.get("ist_sqm", 0.0)
@@ -763,7 +806,7 @@ for k, v in default_state.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ENFORCE DEFAULT PERCENTAGES IF THEY ARE ZERO
+# ENFORCE DEFAULT PERCENTAGES & SMART DEFAULTS IF UNSET
 if st.session_state.get("notar_p", 0.0) == 0.0:
     st.session_state["notar_p"] = 2.00
 if st.session_state.get("makler_p", 0.0) == 0.0:
@@ -1028,7 +1071,9 @@ elif nav_choice == "Analyse":
                         if ai_data:
                             if ai_data.get("kaufpreis"): st.session_state["kaufpreis"] = float(ai_data["kaufpreis"])
                             if ai_data.get("wohnflaeche"): st.session_state["qm"] = float(ai_data["wohnflaeche"])
-                            if ai_data.get("baujahr"): st.session_state["baujahr"] = int(ai_data["baujahr"])
+                            if ai_data.get("baujahr"): 
+                                st.session_state["baujahr"] = int(ai_data["baujahr"])
+                                update_smart_defaults()
                             
                             if ai_data.get("ist_miete_monat"):
                                 monat_val = float(ai_data["ist_miete_monat"])
@@ -1053,7 +1098,9 @@ elif nav_choice == "Analyse":
                                 update_grwt_from_bundesland()
                             if ai_data.get("stadt") and str(ai_data["stadt"]) != "Unbekannt": st.session_state["stadt"] = str(ai_data["stadt"])
                             if ai_data.get("stadtteil") and str(ai_data["stadtteil"]) != "Unbekannt": st.session_state["stadtteil"] = str(ai_data["stadtteil"])
-                            if ai_data.get("objektart") and str(ai_data["objektart"]) in OBJEKTARTEN: st.session_state["objektart"] = str(ai_data["objektart"])
+                            if ai_data.get("objektart") and str(ai_data["objektart"]) in OBJEKTARTEN: 
+                                st.session_state["objektart"] = str(ai_data["objektart"])
+                                update_smart_defaults()
                             if ai_data.get("objektname") and str(ai_data["objektname"]) != "Unbekannt": st.session_state["obj_name"] = str(ai_data["objektname"])
                             st.success("Objektdaten erfolgreich übernommen.")
                             st.rerun()
@@ -1064,7 +1111,7 @@ elif nav_choice == "Analyse":
         # 1. OBJEKTDATEN
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name", placeholder="z. B. Mehrfamilienhaus Bonn")
-            st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart")
+            st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart", on_change=update_smart_defaults)
             
             st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland", on_change=update_grwt_from_bundesland)
             
@@ -1074,7 +1121,7 @@ elif nav_choice == "Analyse":
             
             st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0, format="%.2f")
             qm_in = st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f", on_change=sync_rent_from_qm)
-            st.number_input("Baujahr", key="baujahr", step=1)
+            st.number_input("Baujahr", key="baujahr", step=1, on_change=update_smart_defaults)
             
             st.markdown("---")
             st.markdown("**Mieteinnahmen (IST)**")
@@ -1178,11 +1225,16 @@ elif nav_choice == "Analyse":
             st.markdown("---")
             st.markdown("**Bewirtschaftung & Rücklagen**")
             
-            st.info("""
-            💡 **Hinterlegte Standard-Annahmen (jederzeit anpassbar):**
-            * **Instandhaltungsrücklage (12,00 €/m²/Jahr):** Entspricht 1,00 €/m² pro Monat für laufende Reparaturen & Rücklagen (Standard nach II. BV / Petersscher Formel).
-            * **Verwaltungskosten (30,00 €/Monat):** Übliche Marktpauschale für Fremd- bzw. Sondereigentumsverwaltung (SEV) pro Wohneinheit.
-            * **Leerstandsrisiko (2,0 %):** Entspricht statistisch ca. 1 Woche Mietausfall/Leerstand alle 2 Jahre bei Mieterwechsel.
+            curr_bj = st.session_state.get("baujahr", 2000)
+            curr_obj = st.session_state.get("objektart", "Eigentumswohnung")
+            curr_age = max(0, 2026 - curr_bj)
+            
+            st.info(f"""
+            💡 **Dynamische Standard-Empfehlung für Baujahr {curr_bj} ({curr_age} Jahre alt, {curr_obj}):**
+            * **Instandhaltungsrücklage:** Staffelung nach Alter & Gebäudekomplexität (II. BV / Peterssche Formel).
+            * **Verwaltungskosten:** Marktgerechte Verwaltungspauschale für den ausgewählten Gebäudetyp.
+            * **Leerstandsrisiko:** Statistisches Fluktuations- und Leerstandsrisiko.
+            *(Alle Felder sind unten weiterhin individuell anpassbar)*
             """)
 
             st.number_input(
@@ -1190,21 +1242,21 @@ elif nav_choice == "Analyse":
                 key="inst_sqm", 
                 step=1.0, 
                 format="%.2f",
-                help="Standard: 12,00 €/m²/Jahr (entspricht 1,00 €/m²/Monat)"
+                help="Dynamisch angepasst an Baujahr und Gebäudekomplexität."
             )
             st.number_input(
                 "Verwaltung (€/Monat)", 
                 key="mgt_monat", 
                 step=5.0, 
                 format="%.2f",
-                help="Standard: 30,00 €/Monat pro Wohneinheit"
+                help="Monatliche Pauschale für Sondereigentums- bzw. Mietverwaltung."
             )
             st.slider(
                 "Leerstandsquote (%)", 
                 0.0, 0.10, 
                 key="vac_rate", 
                 step=0.01,
-                help="Standard: 0,02 (2,0 %)"
+                help="Kalkulatorischer Mietausfall durch Mieterwechsel."
             )
 
         # 4. STEUERN & MAKRO
