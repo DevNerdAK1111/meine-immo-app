@@ -168,21 +168,33 @@ def render_analyse_view(sb_client):
                 if b_val > 0:
                     active_capex.append({"jahr": j_val, "betrag": b_val})
 
-        with st.expander("4. Steuern, Makro & Exit", expanded=False):
+      with st.expander("4. Steuern, Makro & Exit", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             
             afa_options = [
                 "Linear Standard", 
                 "Degressiv (Paragraph 7 Abs. 5a EStG)", 
                 "Sonder-AfA (Paragraph 7b EStG)", 
-                "Denkmal-AfA (Paragraph 7h/7i EStG)"
+                "Denkmal-AfA (Paragraph 7h/7i EStG)",
+                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)" # NEU
             ]
             afa_map_to_internal = {
                 "Linear Standard": "1_Linear_Standard",
                 "Degressiv (Paragraph 7 Abs. 5a EStG)": "2_Degressiv_§7_5a",
                 "Sonder-AfA (Paragraph 7b EStG)": "3_Sonder_AfA_§7b",
-                "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i"
+                "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i",
+                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)": "5_Degressiv_plus_Sonder" # NEU
             }
+            
+            current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
+            current_display = afa_map_to_display.get(current_afa, "Linear Standard")
+            
+            selected_display = st.selectbox("AfA-Modell", afa_options, index=afa_options.index(current_display) if current_display in afa_options else 0)
+            internal_afa_model = afa_map_to_internal[selected_display]
+            st.session_state["afa_model"] = internal_afa_model
+            
+            if internal_afa_model in ["1_Linear_Standard", "3_Sonder_AfA_§7b", "5_Degressiv_plus_Sonder"]:
+                st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
             afa_map_to_display = {v: k for k, v in afa_map_to_internal.items()}
             
             current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
