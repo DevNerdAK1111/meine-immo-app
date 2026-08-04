@@ -108,7 +108,6 @@ def render_analyse_view(sb_client):
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             
-            # NEU: Jährliche Sondertilgung als Eingabefeld
             st.number_input(
                 "Jährliche Sondertilgung (€)", 
                 key="sondertilg", 
@@ -146,6 +145,28 @@ def render_analyse_view(sb_client):
             st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
             st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
             st.slider("Leerstandsquote (%)", 0.0, 10.0, key="vac_rate_pct", step=0.5, format="%.1f %%")
+            
+            # NEU: Flexible Sonderinvestitionen (Capex) direkt in der Bewirtschaftung oder als Sub-Expander
+            st.markdown("---")
+            st.markdown("##### Flexible Sonderinvestitionen (Capex)")
+            st.caption("Füge zielgerichtete Instandhaltungen oder Modernisierungen für spezifische Jahre hinzu.")
+            
+            if "capex_dynamic_list" not in st.session_state:
+                st.session_state["capex_dynamic_list"] = [{"jahr": 3, "betrag": 0.0}]
+                
+            # Automatisch neue Zeile hinzufügen, wenn die letzte Zeile befüllt wurde
+            if st.session_state["capex_dynamic_list"][-1]["betrag"] > 0:
+                st.session_state["capex_dynamic_list"].append({"jahr": 1, "betrag": 0.0})
+                
+            active_capex = []
+            for idx, c_item in enumerate(st.session_state["capex_dynamic_list"]):
+                cc1, cc2 = st.columns(2)
+                j_val = cc1.number_input(f"Jahr #{idx+1}", min_value=1, max_value=50, value=int(c_item["jahr"]), key=f"dyn_capex_j_{idx}")
+                b_val = cc2.number_input(f"Betrag (€) #{idx+1}", min_value=0.0, step=1000.0, value=float(c_item["betrag"]), key=f"dyn_capex_b_{idx}")
+                
+                st.session_state["capex_dynamic_list"][idx] = {"jahr": j_val, "betrag": b_val}
+                if b_val > 0:
+                    active_capex.append({"jahr": j_val, "betrag": b_val})
 
         with st.expander("4. Steuern, Makro & Exit", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
@@ -193,6 +214,9 @@ def render_analyse_view(sb_client):
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
     
+    # Aktive Capex-Liste für den Rechenkern filtern (nur Beträge > 0)
+    final_capex_list = [item for item in st.session_state.get("capex_dynamic_list", []) if item["betrag"] > 0]
+
     input_data = {
         'obj_name': st.session_state.get("obj_name", ""),
         'objektart': st.session_state.get("objektart", "Eigentumswohnung"),
@@ -217,7 +241,8 @@ def render_analyse_view(sb_client):
         'loan_type': st.session_state.get("loan_type", "Annuitätendarlehen"),
         'hb_zins': st.session_state.get("hb_zins", 3.8),
         'hb_tilg': st.session_state.get("hb_tilg", 2.0),
-        'sondertilg': st.session_state.get("sondertilg", 0.0), # Übergabe der Sondertilgung
+        'sondertilg': st.session_state.get("sondertilg", 0.0),
+        'capex_list': final_capex_list,
         'zinsbindung': st.session_state.get("zinsbindung", 10),
         'folge_zins': st.session_state.get("folge_zins", st.session_state.get("hb_zins", 3.8)) / 100,
         'folge_mode': st.session_state.get("folge_mode", "Rate konstant halten (Annuität)"),
@@ -235,8 +260,6 @@ def render_analyse_view(sb_client):
         'vac_rate_pct': st.session_state.get("vac_rate_pct", 2.0),
         'inst_sqm': st.session_state.get("inst_sqm", 12.0),
         'mgt_monat': st.session_state.get("mgt_monat", 30.0),
-        'capex_j3': st.session_state.get("capex_j3", 0.0),
-        'capex_j6': st.session_state.get("capex_j6", 0.0),
         'tax_rate_pct': st.session_state.get("tax_rate_pct", 42.0),
         'afa_model': st.session_state.get("afa_model", "1_Linear_Standard"),
         'afa_lin': st.session_state.get("afa_lin", 2.0),
@@ -257,6 +280,7 @@ def render_analyse_view(sb_client):
         'ek_euro': input_data['ek_euro'], 'ek_quote': input_data['ek_quote'],
         'loan_type': input_data['loan_type'], 'hb_zins': input_data['hb_zins'] / 100,
         'hb_tilg': input_data['hb_tilg'] / 100, 'sondertilg': input_data['sondertilg'],
+        'capex_list': final_capex_list,
         'grace_years': input_data['grace_years'],
         'zinsbindung': input_data['zinsbindung'], 'folge_zins': input_data['folge_zins'],
         'folge_mode': input_data['folge_mode'], 'folge_tilg': input_data['folge_tilg'],
@@ -268,7 +292,6 @@ def render_analyse_view(sb_client):
         'vac_rate': input_data['vac_rate_pct'] / 100, 'qm': input_data['qm'],
         'hausgeld': input_data['hausgeld'], 'hausgeld_nicht_umlegbar': input_data['hausgeld_nicht_umlegbar'],
         'inst_sqm': input_data['inst_sqm'], 'mgt_monat': input_data['mgt_monat'],
-        'capex_j3': input_data['capex_j3'], 'capex_j6': input_data['capex_j6'],
         'tax_rate': input_data['tax_rate_pct'] / 100, 'afa_model': input_data['afa_model'],
         'afa_lin': input_data['afa_lin'] / 100, 'miet_inc': input_data['miet_inc'] / 100,
         'cost_inc': input_data['cost_inc'] / 100, 'val_inc': input_data['val_inc'] / 100,
@@ -487,7 +510,7 @@ def render_analyse_view(sb_client):
                 
                 st.markdown("""
                 <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
-                    <div style="font-weight: 700; color: #13381A; margin-bottom: 10px; formal-size: 0.95rem;">Erläuterung der Kennzahlen & Fachbegriffe</div>
+                    <div style="font-weight: 700; color: #13381A; margin-bottom: 10px; font-size: 0.95rem;">Erläuterung der Kennzahlen & Fachbegriffe</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.85rem; color: #555759;">
                         <div><b>Reinertrag (NOI):</b> Mietertrag nach Abzug aller Bewirtschaftungskosten und Leerstände, vor Zinsen und Steuern.</div>
                         <div><b>Cashflow (vor/nach St.):</b> Liquiditätsüberschuss auf dem Konto vor bzw. nach Berücksichtigung der persönlichen Einkommensteuer.</div>
