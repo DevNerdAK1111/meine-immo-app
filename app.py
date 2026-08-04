@@ -19,22 +19,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 1. Deine Basis-Styles laden
+# 1. Basis-Styles laden
 load_valuon_styles()
 
-# 2. Unser Layout- & Scroll-Fix JETZT HIER LADEN (damit es garantiert gewinnt)
+# 2. Vollständiger CSS- & JS-Fix für Layout-Breite und butterweiches Scrollen
 st.markdown("""
 <style>
-    /* Hauptcontainer dynamisch breiter machen, damit er bei eingeklappter Sidebar den Platz nutzt */
-    .block-container {
-        max-width: 94% !important;
+    /* Erzwingt eine breite, fluide Ansicht, wenn die Sidebar eingeklappt ist */
+    [data-testid="stMainBlockContainer"] {
+        max-width: 95% !important;
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
     }
 
-    /* Scroll-Optimierung gegen Hänger an Rändern */
+    /* Verhindert das Hängenbleiben an den Rändern */
     section[data-testid="stSidebar"], .main {
         overscroll-behavior: none !important;
     }
@@ -44,6 +44,15 @@ st.markdown("""
         height: 100vh;
     }
 </style>
+
+<script>
+    /* Löst den Fokus von Zahlenfeldern beim Scrollen, damit das Mausrad die Seite statt der Zahlen bewegt */
+    document.addEventListener("wheel", function(event) {
+        if (document.activeElement && document.activeElement.type === "number") {
+            document.activeElement.blur();
+        }
+    }, { passive: true });
+</script>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
