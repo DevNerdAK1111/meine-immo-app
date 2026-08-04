@@ -19,23 +19,29 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Globaler Scroll-Fix zur Vermeidung von Hängern an den Rändern und in Zahlenfeldern
+# Globaler Scroll-Fix & CSS gegen Hänger an Rändern und in Zahlenfeldern
 st.markdown("""
 <style>
-    [data-testid="stSidebar"], [data-testid="stMain"] {
-        overscroll-behavior: contain;
+    /* 1. Verhindert das Hängenbleiben am oberen/unteren Rand der Sidebar und des Hauptbereichs */
+    section[data-testid="stSidebar"], .main {
+        overscroll-behavior: none !important;
     }
-    [data-testid="stSidebar"] > div:first-child {
-        overflow-y: auto;
-        overflow-x: hidden;
+
+    /* 2. Erzwingt sauberes Scrollen in der Sidebar */
+    section[data-testid="stSidebar"] > div:first-child {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: 100vh;
+    }
+
+    /* 3. Verhindert, dass das Mausrad über Zahlenfeldern Werte verändert und das Scrollen blockiert */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
     }
     input[type=number] {
         -moz-appearance: textfield;
-    }
-    input[type=number]::-webkit-outer-spin-button,
-    input[type=number]::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
     }
 </style>
 """, unsafe_allow_html=True)
