@@ -19,40 +19,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 1. Basis-Styles laden
+# Basis-Styles laden
 load_valuon_styles()
 
-# 2. Vollständiger CSS- & JS-Fix für Layout-Breite und butterweiches Scrollen
+# Präziser, verbindlicher CSS-Fix für die volle, fluide Bildschirmbreite
 st.markdown("""
 <style>
-    /* Erzwingt eine breite, fluide Ansicht, wenn die Sidebar eingeklappt ist */
-    [data-testid="stMainBlockContainer"] {
-        max-width: 95% !important;
+    /* Zwingt den Hauptcontainer und Block-Container dazu, sich fluid über die volle Breite auszudehnen */
+    .stMainBlockContainer, .block-container {
+        max-width: 100% !important;
+        padding-left: 3.5rem !important;
+        padding-right: 3.5rem !important;
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 3rem !important;
-        padding-right: 3rem !important;
-    }
-
-    /* Verhindert das Hängenbleiben an den Rändern */
-    section[data-testid="stSidebar"], .main {
-        overscroll-behavior: none !important;
-    }
-    section[data-testid="stSidebar"] > div:first-child {
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        height: 100vh;
     }
 </style>
-
-<script>
-    /* Löst den Fokus von Zahlenfeldern beim Scrollen, damit das Mausrad die Seite statt der Zahlen bewegt */
-    document.addEventListener("wheel", function(event) {
-        if (document.activeElement && document.activeElement.type === "number") {
-            document.activeElement.blur();
-        }
-    }, { passive: true });
-</script>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
