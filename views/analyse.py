@@ -108,6 +108,14 @@ def render_analyse_view(sb_client):
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
+
+            # NEU: SCHLANKER EXPANDER FÜR DIE ANSCHLUSSFINANZIERUNG
+            with st.expander("Anschlussfinanzierung & Zinsbindung (Optional)", expanded=False):
+                st.number_input("Zinsbindung (Jahre)", key="zinsbindung", min_value=1, max_value=30, value=st.session_state.get("zinsbindung", 10))
+                st.number_input("Anschlusszins p.a. (%)", key="folge_zins", step=0.1, format="%.2f", value=st.session_state.get("folge_zins", st.session_state.get("hb_zins", 3.8)))
+                st.selectbox("Anschluss-Strategie", ["Rate konstant halten (Annuität)", "Neue Tilgung festlegen (%)"], key="folge_mode")
+                if st.session_state.get("folge_mode") == "Neue Tilgung festlegen (%)":
+                    st.number_input("Neue Tilgung p.a. (%)", key="folge_tilg", step=0.1, format="%.2f", value=st.session_state.get("folge_tilg", 2.0))
             
             with st.expander("KfW-Darlehen (Optional)", expanded=False):
                 st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
@@ -191,6 +199,10 @@ def render_analyse_view(sb_client):
         'loan_type': st.session_state.get("loan_type", "Annuitätendarlehen"),
         'hb_zins': st.session_state.get("hb_zins", 3.8),
         'hb_tilg': st.session_state.get("hb_tilg", 2.0),
+        'zinsbindung': st.session_state.get("zinsbindung", 10),
+        'folge_zins': st.session_state.get("folge_zins", st.session_state.get("hb_zins", 3.8)) / 100,
+        'folge_mode': st.session_state.get("folge_mode", "Rate konstant halten (Annuität)"),
+        'folge_tilg': st.session_state.get("folge_tilg", 2.0) / 100,
         'grace_years': st.session_state.get("grace_years", 0),
         'kfw_amt': st.session_state.get("kfw_amt", 0.0),
         'kfw_zins': st.session_state.get("kfw_zins", 2.1),
@@ -227,6 +239,8 @@ def render_analyse_view(sb_client):
         'ek_euro': input_data['ek_euro'], 'ek_quote': input_data['ek_quote'],
         'loan_type': input_data['loan_type'], 'hb_zins': input_data['hb_zins'] / 100,
         'hb_tilg': input_data['hb_tilg'] / 100, 'grace_years': input_data['grace_years'],
+        'zinsbindung': input_data['zinsbindung'], 'folge_zins': input_data['folge_zins'],
+        'folge_mode': input_data['folge_mode'], 'folge_tilg': input_data['folge_tilg'],
         'kfw_amt': input_data['kfw_amt'], 'kfw_zins': input_data['kfw_zins'] / 100,
         'kfw_tilg': input_data['kfw_tilg'] / 100, 'kfw_grace_years': input_data['kfw_grace_years'],
         'kfw_grant': input_data['kfw_grant'], 'sondertilg': input_data['sondertilg'],
@@ -293,7 +307,6 @@ def render_analyse_view(sb_client):
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
             
-            # Dynamische Berechnung des Gesamtgewinns abhängig vom gewählten Horizont
             horiz_len = len(df_proj) if full_rep else min(10, len(df_proj))
             nav_end = df_proj.iloc[horiz_len - 1]['NAV']
             cum_cf_end = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
