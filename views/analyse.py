@@ -107,7 +107,24 @@ def render_analyse_view(sb_client):
             st.selectbox("Darlehensart", ["Annuitätendarlehen", "Tilgungsdarlehen", "Endfälliges Darlehen"], key="loan_type")
             st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
             st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
+            
+            # NEU: Jährliche Sondertilgung als Eingabefeld
+            st.number_input(
+                "Jährliche Sondertilgung (€)", 
+                key="sondertilg", 
+                step=1000.0, 
+                format="%.2f",
+                help="Freiwillige jährliche Zusatz-Zahlung auf das Hausbank-Darlehen zur Reduzierung der Restschuld."
+            )
+            
             st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
+            
+            with st.expander("Anschlussfinanzierung & Zinsbindung (Optional)", expanded=False):
+                st.number_input("Zinsbindung (Jahre)", key="zinsbindung", min_value=1, max_value=30, value=st.session_state.get("zinsbindung", 10))
+                st.number_input("Anschlusszins p.a. (%)", key="folge_zins", step=0.1, format="%.2f", value=st.session_state.get("folge_zins", st.session_state.get("hb_zins", 3.8)))
+                st.selectbox("Anschluss-Strategie", ["Rate konstant halten (Annuität)", "Neue Tilgung festlegen (%)"], key="folge_mode")
+                if st.session_state.get("folge_mode") == "Neue Tilgung festlegen (%)":
+                    st.number_input("Neue Tilgung p.a. (%)", key="folge_tilg", step=0.1, format="%.2f", value=st.session_state.get("folge_tilg", 2.0))
             
             with st.expander("KfW-Darlehen (Optional)", expanded=False):
                 st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
@@ -200,13 +217,17 @@ def render_analyse_view(sb_client):
         'loan_type': st.session_state.get("loan_type", "Annuitätendarlehen"),
         'hb_zins': st.session_state.get("hb_zins", 3.8),
         'hb_tilg': st.session_state.get("hb_tilg", 2.0),
+        'sondertilg': st.session_state.get("sondertilg", 0.0), # Übergabe der Sondertilgung
+        'zinsbindung': st.session_state.get("zinsbindung", 10),
+        'folge_zins': st.session_state.get("folge_zins", st.session_state.get("hb_zins", 3.8)) / 100,
+        'folge_mode': st.session_state.get("folge_mode", "Rate konstant halten (Annuität)"),
+        'folge_tilg': st.session_state.get("folge_tilg", 2.0) / 100,
         'grace_years': st.session_state.get("grace_years", 0),
         'kfw_amt': st.session_state.get("kfw_amt", 0.0),
         'kfw_zins': st.session_state.get("kfw_zins", 2.1),
         'kfw_tilg': st.session_state.get("kfw_tilg", 3.0),
         'kfw_grace_years': st.session_state.get("kfw_grace_years", 0),
         'kfw_grant': st.session_state.get("kfw_grant", 0.0),
-        'sondertilg': st.session_state.get("sondertilg", 0.0),
         'target_miete_monat': st.session_state.get("target_miete_monat", 0.0),
         'target_sqm': target_sqm_resolved,
         'adj_year': st.session_state.get("adj_year", 3),
@@ -235,10 +256,13 @@ def render_analyse_view(sb_client):
         'sonst_nk': input_data['sonst_nk'], 'disagio_proz': input_data['disagio_p'] / 100,
         'ek_euro': input_data['ek_euro'], 'ek_quote': input_data['ek_quote'],
         'loan_type': input_data['loan_type'], 'hb_zins': input_data['hb_zins'] / 100,
-        'hb_tilg': input_data['hb_tilg'] / 100, 'grace_years': input_data['grace_years'],
+        'hb_tilg': input_data['hb_tilg'] / 100, 'sondertilg': input_data['sondertilg'],
+        'grace_years': input_data['grace_years'],
+        'zinsbindung': input_data['zinsbindung'], 'folge_zins': input_data['folge_zins'],
+        'folge_mode': input_data['folge_mode'], 'folge_tilg': input_data['folge_tilg'],
         'kfw_amt': input_data['kfw_amt'], 'kfw_zins': input_data['kfw_zins'] / 100,
         'kfw_tilg': input_data['kfw_tilg'] / 100, 'kfw_grace_years': input_data['kfw_grace_years'],
-        'kfw_grant': input_data['kfw_grant'], 'sondertilg': input_data['sondertilg'],
+        'kfw_grant': input_data['kfw_grant'],
         'ist_sqm': input_data['ist_sqm'], 'target_sqm': input_data['target_sqm'],
         'adj_year': input_data['adj_year'], 'park': input_data['park'],
         'vac_rate': input_data['vac_rate_pct'] / 100, 'qm': input_data['qm'],
@@ -302,7 +326,6 @@ def render_analyse_view(sb_client):
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
             
-            # Berechnungen für den echten Gewinn & Gesamtrendite (IRR)
             horiz_len = min(10, len(df_proj)) if not full_rep else len(df_proj)
             nav_net_end = df_proj.iloc[horiz_len - 1]['NAV (nach Exit)']
             cum_cf_end = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
@@ -313,7 +336,6 @@ def render_analyse_view(sb_client):
             c1.markdown(f'<div class="metric-card metric-{get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])[0]}"><div class="metric-title">Cashflow netto</div><div class="metric-value">{fmt_de(val_cf, 2)} €/M</div></div>', unsafe_allow_html=True)
             c2.markdown(f'<div class="metric-card metric-{get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])[0]}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{fmt_pct(val_rendite)}</div></div>', unsafe_allow_html=True)
             
-            # Sauber ohne extra Zeile unter dem Wert
             profit_label = f"Gesamtgewinn ({horiz_len} J.)"
             c3.markdown(f'<div class="metric-card metric-green"><div class="metric-title">{profit_label}</div><div class="metric-value">{fmt_eur(net_profit_total)}</div></div>', unsafe_allow_html=True)
             c4.markdown(f'<div class="metric-card metric-green"><div class="metric-title">EK-Rendite p.a. (IRR)</div><div class="metric-value">{fmt_pct(val_irr)}</div></div>', unsafe_allow_html=True)
@@ -465,7 +487,7 @@ def render_analyse_view(sb_client):
                 
                 st.markdown("""
                 <div style="background-color: #faf8f5; border: 1px solid #e0dbd0; padding: 20px; border-radius: 8px; margin-top: 25px;">
-                    <div style="font-weight: 700; color: #13381A; margin-bottom: 10px; font-size: 0.95rem;">Erläuterung der Kennzahlen & Fachbegriffe</div>
+                    <div style="font-weight: 700; color: #13381A; margin-bottom: 10px; formal-size: 0.95rem;">Erläuterung der Kennzahlen & Fachbegriffe</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.85rem; color: #555759;">
                         <div><b>Reinertrag (NOI):</b> Mietertrag nach Abzug aller Bewirtschaftungskosten und Leerstände, vor Zinsen und Steuern.</div>
                         <div><b>Cashflow (vor/nach St.):</b> Liquiditätsüberschuss auf dem Konto vor bzw. nach Berücksichtigung der persönlichen Einkommensteuer.</div>
