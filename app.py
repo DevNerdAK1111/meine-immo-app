@@ -110,7 +110,8 @@ with col_h2:
 
 st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
 
-nav_items = ["Objekt Datenbank", "Analyse", "Vergleich", "Kaufpreis", "Immobilienwissen", "Einstellungen"]
+# "Vergleich" und "Kaufpreis" ausblenden, ohne den Code dahinter zu löschen
+nav_items = ["Objekt Datenbank", "Analyse", "Immobilienwissen", "Einstellungen"]
 nav_cols = st.columns(len(nav_items))
 
 for idx, item in enumerate(nav_items):
@@ -130,10 +131,10 @@ if nav_choice == "Objekt Datenbank":
     render_pipeline_view(sb_client)
 elif nav_choice == "Analyse":
     render_analyse_view(sb_client)
-elif nav_choice == "Vergleich":
-    render_vergleich_view()
-elif nav_choice == "Kaufpreis":
-    render_kaufpreis_view()
+# elif nav_choice == "Vergleich":
+#     render_vergleich_view()
+# elif nav_choice == "Kaufpreis":
+#     render_kaufpreis_view()
 elif nav_choice == "Immobilienwissen":
     render_wissen_view()
 elif nav_choice == "Einstellungen":
