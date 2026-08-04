@@ -113,7 +113,7 @@ def calc_projection(data, full_repayment=False):
         cf_v_st = noi - (tot_zins + tot_tilg)
         
         # 4. Steuern
-         taxable_income = noi - tot_zins - afa_annual
+        taxable_income = noi - tot_zins - afa_annual
         tax = max(0.0, taxable_income * tax_rate) if taxable_income > 0 else taxable_income * tax_rate
         cf_n_st = cf_v_st - tax
         
