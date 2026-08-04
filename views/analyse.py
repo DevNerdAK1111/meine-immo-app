@@ -293,17 +293,19 @@ def render_analyse_view(sb_client):
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
             
-            # Berechnungen für den echten 10-Jahres-Gewinn & echte Gesamtrendite (IRR)
-            horiz_len = min(10, len(df_proj))
-            nav_10y = df_proj.iloc[horiz_len - 1]['NAV']
-            cum_cf_10y = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
-            net_profit_10y = nav_10y - ek_abs + cum_cf_10y
-            val_irr = irr * 100  # Echte Gesamtrendite p.a. inkl. Tilgung & Wertsteigerung
+            # Dynamische Berechnung des Gesamtgewinns abhängig vom gewählten Horizont
+            horiz_len = len(df_proj) if full_rep else min(10, len(df_proj))
+            nav_end = df_proj.iloc[horiz_len - 1]['NAV']
+            cum_cf_end = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
+            net_profit_total = nav_end - ek_abs + cum_cf_end
+            val_irr = irr * 100
 
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(f'<div class="metric-card metric-{get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])[0]}"><div class="metric-title">Cashflow netto</div><div class="metric-value">{fmt_de(val_cf, 2)} €/M</div></div>', unsafe_allow_html=True)
             c2.markdown(f'<div class="metric-card metric-{get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])[0]}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{fmt_pct(val_rendite)}</div></div>', unsafe_allow_html=True)
-            c3.markdown(f'<div class="metric-card metric-green"><div class="metric-title">Gesamtgewinn (10 J.)</div><div class="metric-value">{fmt_eur(net_profit_10y)}</div></div>', unsafe_allow_html=True)
+            
+            profit_label = f"Gesamtgewinn ({horiz_len} J.)"
+            c3.markdown(f'<div class="metric-card metric-green"><div class="metric-title">{profit_label}</div><div class="metric-value">{fmt_eur(net_profit_total)}</div></div>', unsafe_allow_html=True)
             c4.markdown(f'<div class="metric-card metric-green"><div class="metric-title">EK-Rendite p.a. (IRR)</div><div class="metric-value">{fmt_pct(val_irr)}</div></div>', unsafe_allow_html=True)
 
             tab_dash, tab_plan = st.tabs(["Executive Dashboard", "Liquiditätsverlauf & Tilgung"])
