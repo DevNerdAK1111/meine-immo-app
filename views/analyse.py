@@ -146,7 +146,6 @@ def render_analyse_view(sb_client):
             st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
             st.slider("Leerstandsquote (%)", 0.0, 10.0, key="vac_rate_pct", step=0.5, format="%.1f %%")
             
-            # NEU: Flexible Sonderinvestitionen (Capex) direkt in der Bewirtschaftung oder als Sub-Expander
             st.markdown("---")
             st.markdown("##### Flexible Sonderinvestitionen (Capex)")
             st.caption("Füge zielgerichtete Instandhaltungen oder Modernisierungen für spezifische Jahre hinzu.")
@@ -154,7 +153,6 @@ def render_analyse_view(sb_client):
             if "capex_dynamic_list" not in st.session_state:
                 st.session_state["capex_dynamic_list"] = [{"jahr": 3, "betrag": 0.0}]
                 
-            # Automatisch neue Zeile hinzufügen, wenn die letzte Zeile befüllt wurde
             if st.session_state["capex_dynamic_list"][-1]["betrag"] > 0:
                 st.session_state["capex_dynamic_list"].append({"jahr": 1, "betrag": 0.0})
                 
@@ -168,7 +166,7 @@ def render_analyse_view(sb_client):
                 if b_val > 0:
                     active_capex.append({"jahr": j_val, "betrag": b_val})
 
-      with st.expander("4. Steuern, Makro & Exit", expanded=False):
+        with st.expander("4. Steuern, Makro & Exit", expanded=False):
             st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
             
             afa_options = [
@@ -176,25 +174,15 @@ def render_analyse_view(sb_client):
                 "Degressiv (Paragraph 7 Abs. 5a EStG)", 
                 "Sonder-AfA (Paragraph 7b EStG)", 
                 "Denkmal-AfA (Paragraph 7h/7i EStG)",
-                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)" # NEU
+                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)"
             ]
             afa_map_to_internal = {
                 "Linear Standard": "1_Linear_Standard",
                 "Degressiv (Paragraph 7 Abs. 5a EStG)": "2_Degressiv_§7_5a",
                 "Sonder-AfA (Paragraph 7b EStG)": "3_Sonder_AfA_§7b",
                 "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i",
-                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)": "5_Degressiv_plus_Sonder" # NEU
+                "Degressiv + Sonder-AfA (EH40 / § 7 Abs. 5a & § 7b)": "5_Degressiv_plus_Sonder"
             }
-            
-            current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
-            current_display = afa_map_to_display.get(current_afa, "Linear Standard")
-            
-            selected_display = st.selectbox("AfA-Modell", afa_options, index=afa_options.index(current_display) if current_display in afa_options else 0)
-            internal_afa_model = afa_map_to_internal[selected_display]
-            st.session_state["afa_model"] = internal_afa_model
-            
-            if internal_afa_model in ["1_Linear_Standard", "3_Sonder_AfA_§7b", "5_Degressiv_plus_Sonder"]:
-                st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
             afa_map_to_display = {v: k for k, v in afa_map_to_internal.items()}
             
             current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
@@ -204,7 +192,7 @@ def render_analyse_view(sb_client):
             internal_afa_model = afa_map_to_internal[selected_display]
             st.session_state["afa_model"] = internal_afa_model
             
-            if internal_afa_model == "1_Linear_Standard":
+            if internal_afa_model in ["1_Linear_Standard", "3_Sonder_AfA_§7b", "5_Degressiv_plus_Sonder"]:
                 st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
             
             st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
@@ -226,9 +214,8 @@ def render_analyse_view(sb_client):
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
     
-    # Aktive Capex-Liste für den Rechenkern filtern (nur Beträge > 0)
     final_capex_list = [item for item in st.session_state.get("capex_dynamic_list", []) if item["betrag"] > 0]
-
+    
     input_data = {
         'obj_name': st.session_state.get("obj_name", ""),
         'objektart': st.session_state.get("objektart", "Eigentumswohnung"),
