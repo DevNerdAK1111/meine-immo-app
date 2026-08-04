@@ -38,6 +38,9 @@ def calc_projection(data, full_repayment=False):
     folge_tilg = data.get('folge_tilg', hb_tilg_init)
     sondertilg_input = data.get('sondertilg', 0.0)
     
+    # Flexible Capex Liste einlesen
+    capex_list = data.get('capex_list', [])
+    
     # Anfängliche Annuität Phase 1
     hb_annuity_init = hb_loan_init * (hb_zins_init + hb_tilg_init)
     
@@ -92,12 +95,10 @@ def calc_projection(data, full_repayment=False):
         hb_tilg_year = min(hb_rest, max(0.0, curr_hb_annuity - hb_zins_year))
         hb_rest -= hb_tilg_year
         
-        # Jährliche Sondertilgung auf Hausbank-Darlehen anwenden
         sondertilg_year = min(hb_rest, sondertilg_input)
         hb_rest -= sondertilg_year
-        hb_tilg_year += sondertilg_year  # In reguläre Tilgung einrechnen
+        hb_tilg_year += sondertilg_year
         
-        # KfW Zins & Tilgung
         kfw_zins_year = kfw_rest * data['kfw_zins']
         kfw_annu = kfw_amt * (data['kfw_zins'] + data['kfw_tilg'])
         kfw_tilg_year = min(kfw_rest, max(0.0, kfw_annu - kfw_zins_year))
@@ -116,15 +117,19 @@ def calc_projection(data, full_repayment=False):
         gross_rent = m_monat * 12
         net_rent = gross_rent * (1.0 - vac_rate)
         
-        # 3. Bewirtschaftungskosten
+        # 3. Bewirtschaftungskosten & Flexible Capex für dieses Jahr
         cost_factor = (1.0 + cost_inc) ** (y - 1)
         inst = inst_annual_base * cost_factor
         mgt = mgt_annual_base * cost_factor
         hg_nr = hausgeld_non_reimb_base * cost_factor
         tot_costs = inst + mgt + hg_nr
         
+        # Prüfen, ob in diesem Jahr eine Sonderinvestition (Capex) anliegt
+        year_capex = sum([item['betrag'] for item in capex_list if item['jahr'] == y])
+        
         noi = net_rent - tot_costs
-        cf_v_st = noi - (tot_zins + tot_tilg)
+        # Capex reduziert den Cashflow vor Steuern im jeweiligen Jahr direkt
+        cf_v_st = noi - (tot_zins + tot_tilg) - year_capex
         
         # 4. Steuern
         taxable_income = noi - tot_zins - afa_annual
