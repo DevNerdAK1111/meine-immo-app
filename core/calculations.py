@@ -36,6 +36,7 @@ def calc_projection(data, full_repayment=False):
     folge_zins = data.get('folge_zins', hb_zins_init)
     folge_mode = data.get('folge_mode', "Rate konstant halten (Annuität)")
     folge_tilg = data.get('folge_tilg', hb_tilg_init)
+    sondertilg_input = data.get('sondertilg', 0.0)
     
     # Anfängliche Annuität Phase 1
     hb_annuity_init = hb_loan_init * (hb_zins_init + hb_tilg_init)
@@ -54,8 +55,8 @@ def calc_projection(data, full_repayment=False):
     
     miet_inc = data.get('miet_inc', 0.015)
     cost_inc = data.get('cost_inc', 0.02)
-    val_inc = data.get('val_inc', 0.0)         # Standard: 0.0% Wertsteigerung
-    exit_cost_pct = data.get('exit_cost', 0.02) # Standard: 2.0% Verkaufsnebenkosten
+    val_inc = data.get('val_inc', 0.0)
+    exit_cost_pct = data.get('exit_cost', 0.02)
     
     inst_annual_base = data['inst_sqm'] * qm
     mgt_annual_base = data['mgt_monat'] * 12
@@ -65,8 +66,6 @@ def calc_projection(data, full_repayment=False):
     
     hb_rest = hb_loan_init
     kfw_rest = kfw_amt
-    
-    # Anfänglicher Objektwert (Kaufpreis + getätigte Sanierungen)
     obj_val = kp + sanierung
     
     rows = []
@@ -93,6 +92,12 @@ def calc_projection(data, full_repayment=False):
         hb_tilg_year = min(hb_rest, max(0.0, curr_hb_annuity - hb_zins_year))
         hb_rest -= hb_tilg_year
         
+        # Jährliche Sondertilgung auf Hausbank-Darlehen anwenden
+        sondertilg_year = min(hb_rest, sondertilg_input)
+        hb_rest -= sondertilg_year
+        hb_tilg_year += sondertilg_year  # In reguläre Tilgung einrechnen
+        
+        # KfW Zins & Tilgung
         kfw_zins_year = kfw_rest * data['kfw_zins']
         kfw_annu = kfw_amt * (data['kfw_zins'] + data['kfw_tilg'])
         kfw_tilg_year = min(kfw_rest, max(0.0, kfw_annu - kfw_zins_year))
@@ -126,7 +131,7 @@ def calc_projection(data, full_repayment=False):
         tax = taxable_income * tax_rate
         cf_n_st = cf_v_st - tax
         
-        # 5. Wertentwicklung & Exit-Kosten (Verkaufsnebenkosten)
+        # 5. Wertentwicklung & Exit
         obj_val = obj_val * (1.0 + val_inc)
         exit_cost_eur = obj_val * exit_cost_pct
         nav_gross = obj_val - tot_rest
@@ -151,7 +156,7 @@ def calc_projection(data, full_repayment=False):
             'Exit-Kosten': exit_cost_eur,
             'NAV (vor Exit)': nav_gross,
             'NAV (nach Exit)': nav_net,
-            'NAV': nav_net,  # Für Abwärtskompatibilität
+            'NAV': nav_net,
             'LTV': ltv
         })
         
@@ -164,7 +169,6 @@ def calc_projection(data, full_repayment=False):
             
     df_proj = pd.DataFrame(rows)
     
-    # IRR / Gesamtrendite Berechnung basierend auf Netto-NAV (inkl. Exit-Kosten)
     cfs = [-ek_abs] + df_proj['CF n. St.'].tolist()
     cfs[-1] += df_proj.iloc[-1]['NAV (nach Exit)']
     
