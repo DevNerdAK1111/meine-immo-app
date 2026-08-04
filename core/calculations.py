@@ -2,6 +2,21 @@ import numpy as np
 import pandas as pd
 import numpy_financial as npf
 
+def get_metric_status(val, target, tolerance=0.0):
+    """
+    Ermittelt den Status einer Kennzahl im Vergleich zum Zielwert der Investment-Strategie.
+    Rückgabe ist ein Tuple: (Status-Farbe, Label)
+    """
+    if val is None:
+        return ("neutral", "Keine Angabe")
+    if val >= target:
+        return ("green", "Ziel erreicht")
+    elif val >= (target - abs(tolerance)):
+        return ("yellow", "Im Toleranzbereich")
+    else:
+        return ("red", "Unter Zielvorgabe")
+
+
 def calc_projection(data, full_repayment=False):
     kp = data['kaufpreis']
     sanierung = data['sanierung']
