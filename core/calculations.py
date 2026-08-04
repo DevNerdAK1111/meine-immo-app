@@ -3,10 +3,6 @@ import pandas as pd
 import numpy_financial as npf
 
 def get_metric_status(val, target, tolerance=0.0):
-    """
-    Ermittelt den Status einer Kennzahl im Vergleich zum Zielwert der Investment-Strategie.
-    Rückgabe ist ein Tuple: (Status-Farbe, Label)
-    """
     if val is None:
         return ("neutral", "Keine Angabe")
     if val >= target:
@@ -58,7 +54,8 @@ def calc_projection(data, full_repayment=False):
     
     miet_inc = data.get('miet_inc', 0.015)
     cost_inc = data.get('cost_inc', 0.02)
-    val_inc = data.get('val_inc', 0.015)
+    val_inc = data.get('val_inc', 0.0)         # Standard: 0.0% Wertsteigerung
+    exit_cost_pct = data.get('exit_cost', 0.02) # Standard: 2.0% Verkaufsnebenkosten
     
     inst_annual_base = data['inst_sqm'] * qm
     mgt_annual_base = data['mgt_monat'] * 12
@@ -68,37 +65,34 @@ def calc_projection(data, full_repayment=False):
     
     hb_rest = hb_loan_init
     kfw_rest = kfw_amt
+    
+    # Anfänglicher Objektwert (Kaufpreis + getätigte Sanierungen)
     obj_val = kp + sanierung
     
     rows = []
     y = 0
     max_years = 50 if full_repayment else 10
     
-    hb_annuity_current = hb_annuity_init
-    
     while True:
         y += 1
         
-        # 1. Zins & Tilgung bestimmen (Zinsbindungs-Wechsel)
+        # 1. Zins & Tilgung bestimmen
         if y <= zinsbindung:
             curr_hb_zins = hb_zins_init
             curr_hb_annuity = hb_annuity_init
         else:
             curr_hb_zins = folge_zins
             if y == zinsbindung + 1 and folge_mode != "Rate konstant halten (Annuität)":
-                # Neue Annuität basierend auf Restschuld & Folge-Tilgung
                 curr_hb_annuity = hb_rest * (folge_zins + folge_tilg)
             elif folge_mode == "Rate konstant halten (Annuität)":
                 curr_hb_annuity = hb_annuity_init
             else:
                 curr_hb_annuity = hb_rest * (folge_zins + folge_tilg)
 
-        # Hausbank Zins & Tilgung für das Jahr
         hb_zins_year = hb_rest * curr_hb_zins
         hb_tilg_year = min(hb_rest, max(0.0, curr_hb_annuity - hb_zins_year))
         hb_rest -= hb_tilg_year
         
-        # KfW Zins & Tilgung
         kfw_zins_year = kfw_rest * data['kfw_zins']
         kfw_annu = kfw_amt * (data['kfw_zins'] + data['kfw_tilg'])
         kfw_tilg_year = min(kfw_rest, max(0.0, kfw_annu - kfw_zins_year))
@@ -129,12 +123,15 @@ def calc_projection(data, full_repayment=False):
         
         # 4. Steuern
         taxable_income = noi - tot_zins - afa_annual
-        tax = max(0.0, taxable_income * tax_rate) if taxable_income > 0 else taxable_income * tax_rate
+        tax = taxable_income * tax_rate
         cf_n_st = cf_v_st - tax
         
-        # 5. Wertentwicklung
+        # 5. Wertentwicklung & Exit-Kosten (Verkaufsnebenkosten)
         obj_val = obj_val * (1.0 + val_inc)
-        nav = obj_val - tot_rest
+        exit_cost_eur = obj_val * exit_cost_pct
+        nav_gross = obj_val - tot_rest
+        nav_net = nav_gross - exit_cost_eur
+        
         ltv = (tot_rest / obj_val) if obj_val > 0 else 0.0
         brutto_rendite = (gross_rent / kp) if kp > 0 else 0.0
         
@@ -151,7 +148,10 @@ def calc_projection(data, full_repayment=False):
             'CF n. St.': cf_n_st,
             'Restschuld': tot_rest,
             'Objektwert': obj_val,
-            'NAV': nav,
+            'Exit-Kosten': exit_cost_eur,
+            'NAV (vor Exit)': nav_gross,
+            'NAV (nach Exit)': nav_net,
+            'NAV': nav_net,  # Für Abwärtskompatibilität
             'LTV': ltv
         })
         
@@ -164,9 +164,9 @@ def calc_projection(data, full_repayment=False):
             
     df_proj = pd.DataFrame(rows)
     
-    # IRR / Gesamtrendite Berechnung
+    # IRR / Gesamtrendite Berechnung basierend auf Netto-NAV (inkl. Exit-Kosten)
     cfs = [-ek_abs] + df_proj['CF n. St.'].tolist()
-    cfs[-1] += df_proj.iloc[-1]['NAV']
+    cfs[-1] += df_proj.iloc[-1]['NAV (nach Exit)']
     
     try:
         irr = npf.irr(cfs)
