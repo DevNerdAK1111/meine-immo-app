@@ -19,19 +19,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Globales CSS für Layout-Breite (macht die Mitte bei geschlossener Sidebar breit & fluid)
+# 1. Deine Basis-Styles laden
+load_valuon_styles()
+
+# 2. Unser Layout- & Scroll-Fix JETZT HIER LADEN (damit es garantiert gewinnt)
 st.markdown("""
 <style>
-    /* Hauptcontainer verbreitern, damit er bei geschlossener Sidebar dynamisch mitwächst */
+    /* Hauptcontainer dynamisch breiter machen, damit er bei eingeklappter Sidebar den Platz nutzt */
     .block-container {
-        max-width: 92% !important;
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        padding-left: 2.5rem;
-        padding-right: 2.5rem;
+        max-width: 94% !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
     }
 
-    /* Scroll-Optimierung für Sidebar und Hauptbereich */
+    /* Scroll-Optimierung gegen Hänger an Rändern */
     section[data-testid="stSidebar"], .main {
         overscroll-behavior: none !important;
     }
@@ -42,8 +45,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-load_valuon_styles()
 
 # -----------------------------------------------------------------------------
 # SESSION STATE INITIALIZATION
