@@ -15,26 +15,6 @@ from core.ai_service import get_gemini_api_key, fetch_text_from_url, analyze_tex
 from core.calculations import calc_projection, get_metric_status
 from core.database import db_save_project
 
-def reset_input_mask():
-    defaults = {
-        "obj_name": "", "objektart": "Eigentumswohnung", "stadt": "", "stadtteil": "",
-        "bundesland": "Niedersachsen", "kaufpreis": 0.0, "qm": 0.0, "baujahr": 2000,
-        "sanierung": 0.0, "ist_miete_monat": 0.0, "ist_sqm": 0.0, "target_miete_monat": 0.0,
-        "target_sqm": 0.0, "hausgeld": 0.0, "hausgeld_nicht_umlegbar": 0.0,
-        "grwt_p": 5.0, "notar_p": 2.0, "makler_p": 3.57, "sonst_nk": 0.0, "disagio_p": 0.0,
-        "ek_euro": 0.0, "ek_quote": 0.20, "loan_type": "Annuitätendarlehen", "hb_zins": 3.8,
-        "hb_tilg": 2.0, "grace_years": 0, "kfw_amt": 0.0, "kfw_zins": 2.1, "kfw_tilg": 3.0,
-        "kfw_grace_years": 0, "kfw_grant": 0.0, "sondertilg": 0.0, "adj_year": 3,
-        "park": 0.0, "vac_rate_pct": 2.0, "inst_sqm": 12.0, "mgt_monat": 30.0,
-        "capex_j3": 0.0, "capex_j6": 0.0, "tax_rate_pct": 42.0, "afa_model": "1_Linear_Standard",
-        "afa_lin": 2.0, "miet_inc": 1.5, "cost_inc": 2.0, "val_inc": 1.5, "wacc": 6.0,
-        "exit_cost": 2.0, "grund_anteil": 0.20, "trigger_analysis": False
-    }
-    for k, v in defaults.items():
-        st.session_state[k] = v
-    if "db_save_status" in st.session_state:
-        del st.session_state["db_save_status"]
-
 def render_analyse_view(sb_client):
     with st.sidebar:
         st.markdown("<span class='badge-expose'>1. Objektdaten (Exposé)</span>", unsafe_allow_html=True)
@@ -84,112 +64,107 @@ def render_analyse_view(sb_client):
                     st.rerun()
 
         st.divider()
-        st.markdown("### Parametrisierung")
         
-        with st.expander("1. Objektdaten (Exposé)", expanded=True):
-            st.text_input("Objektbezeichnung", key="obj_name")
-            st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart", on_change=update_smart_defaults)
-            st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland", on_change=update_grwt_from_bundesland)
-            c1, c2 = st.columns(2)
-            c1.text_input("Stadt", key="stadt")
-            c2.text_input("Stadtteil", key="stadtteil")
-            st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0, format="%.2f")
-            st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f", on_change=update_qm_callback)
-            st.number_input("Baujahr", key="baujahr", step=1, on_change=update_smart_defaults)
-            st.markdown("---")
-            col_m1, col_m2 = st.columns(2)
-            col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, format="%.2f", on_change=update_ist_from_monat)
-            col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.5, format="%.2f", on_change=update_ist_from_sqm)
-            st.markdown("---")
-            st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0, format="%.2f")
-            with st.expander("Hausgeld-Aufteilung", expanded=False):
-                st.number_input("Davon nicht umlegbar (€/Monat)", key="hausgeld_nicht_umlegbar", step=5.0, format="%.2f")
-            st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0, format="%.2f")
+        with st.form("analysis_param_form"):
+            st.markdown("### Parametrisierung")
+            with st.expander("1. Objektdaten (Exposé)", expanded=True):
+                st.text_input("Objektbezeichnung", key="obj_name")
+                st.selectbox("Objektart / Typ", OBJEKTARTEN, key="objektart", on_change=update_smart_defaults)
+                st.selectbox("Bundesland", list(GRUNDERWERBSTEUER_MAP.keys()), key="bundesland", on_change=update_grwt_from_bundesland)
+                c1, c2 = st.columns(2)
+                c1.text_input("Stadt", key="stadt")
+                c2.text_input("Stadtteil", key="stadtteil")
+                st.number_input("Kaufpreis (€) *", key="kaufpreis", step=5000.0, format="%.2f")
+                st.number_input("Wohnfläche (m²) *", key="qm", step=5.0, format="%.2f", on_change=update_qm_callback)
+                st.number_input("Baujahr", key="baujahr", step=1, on_change=update_smart_defaults)
+                st.markdown("---")
+                col_m1, col_m2 = st.columns(2)
+                col_m1.number_input("Gesamtkaltmiete (€/Monat)", key="ist_miete_monat", step=50.0, format="%.2f", on_change=update_ist_from_monat)
+                col_m2.number_input("Kaltmiete (€/m²)", key="ist_sqm", step=0.5, format="%.2f", on_change=update_ist_from_sqm)
+                st.markdown("---")
+                st.number_input("Hausgeld gesamt (€/Monat)", key="hausgeld", step=10.0, format="%.2f")
+                with st.expander("Hausgeld-Aufteilung", expanded=False):
+                    st.number_input("Davon nicht umlegbar (€/Monat)", key="hausgeld_nicht_umlegbar", step=5.0, format="%.2f")
+                st.number_input("Sanierungsaufwand (€)", key="sanierung", step=2500.0, format="%.2f")
 
-        with st.expander("2. Finanzierung & Nebenkosten", expanded=False):
-            c_n1, c_n2 = st.columns(2)
-            grwt_val = c_n1.number_input("1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
-            notar_val = c_n2.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1, format="%.2f")
-            kp = st.session_state["kaufpreis"]
-            c_n1.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * grwt_val / 100)}</div>', unsafe_allow_html=True)
-            c_n2.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * notar_val / 100)}</div>', unsafe_allow_html=True)
+            with st.expander("2. Finanzierung & Nebenkosten", expanded=False):
+                c_n1, c_n2 = st.columns(2)
+                grwt_val = c_n1.number_input("1. Grunderwerbsteuer (%)", key="grwt_p", step=0.1, format="%.2f")
+                notar_val = c_n2.number_input("2. Notar & Grundbuch (%)", key="notar_p", step=0.1, format="%.2f")
+                kp = st.session_state["kaufpreis"]
+                c_n1.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * grwt_val / 100)}</div>', unsafe_allow_html=True)
+                c_n2.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * notar_val / 100)}</div>', unsafe_allow_html=True)
 
-            c_n3, c_n4 = st.columns(2)
-            makler_val = c_n3.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1, format="%.2f")
-            sonst_nk = c_n4.number_input("4. Sonst. NK (€)", key="sonst_nk", step=250.0, format="%.2f")
-            c_n3.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * makler_val / 100)}</div>', unsafe_allow_html=True)
-            c_n4.markdown(f'<div class="nk-sub-badge">{fmt_eur(sonst_nk)}</div>', unsafe_allow_html=True)
+                c_n3, c_n4 = st.columns(2)
+                makler_val = c_n3.number_input("3. Maklerprovision (%)", key="makler_p", step=0.1, format="%.2f")
+                sonst_nk = c_n4.number_input("4. Sonst. NK (€)", key="sonst_nk", step=250.0, format="%.2f")
+                c_n3.markdown(f'<div class="nk-sub-badge">{fmt_eur(kp * makler_val / 100)}</div>', unsafe_allow_html=True)
+                c_n4.markdown(f'<div class="nk-sub-badge">{fmt_eur(sonst_nk)}</div>', unsafe_allow_html=True)
 
-            tot_nk = kp * (grwt_val + notar_val + makler_val) / 100 + sonst_nk
-            st.markdown(f'<div class="nk-total-badge"><span>Summe Kaufnebenkosten:</span><span>{fmt_eur(tot_nk)}</span></div>', unsafe_allow_html=True)
-            
-            st.markdown("---")
-            st.selectbox("Darlehensart", ["Annuitätendarlehen", "Tilgungsdarlehen", "Endfälliges Darlehen"], key="loan_type")
-            st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
-            st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
-            st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
-            
-            with st.expander("KfW-Darlehen (Optional)", expanded=False):
-                st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
-                ck1, ck2 = st.columns(2)
-                ck1.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
-                ck2.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1, format="%.2f")
+                tot_nk = kp * (grwt_val + notar_val + makler_val) / 100 + sonst_nk
+                st.markdown(f'<div class="nk-total-badge"><span>Summe Kaufnebenkosten:</span><span>{fmt_eur(tot_nk)}</span></div>', unsafe_allow_html=True)
+                
+                st.markdown("---")
+                st.selectbox("Darlehensart", ["Annuitätendarlehen", "Tilgungsdarlehen", "Endfälliges Darlehen"], key="loan_type")
+                st.number_input("Hausbank Zins (%)", key="hb_zins", step=0.1, format="%.2f")
+                st.number_input("Hausbank Tilgung (%)", key="hb_tilg", step=0.1, format="%.2f")
+                st.number_input("Tilgungsfreie Jahre", key="grace_years", min_value=0, max_value=5)
+                
+                with st.expander("KfW-Darlehen (Optional)", expanded=False):
+                    st.number_input("KfW Darlehen (€)", key="kfw_amt", step=10000.0, format="%.2f")
+                    ck1, ck2 = st.columns(2)
+                    ck1.number_input("KfW Zins (%)", key="kfw_zins", step=0.1, format="%.2f")
+                    ck2.number_input("KfW Tilgung (%)", key="kfw_tilg", step=0.1, format="%.2f")
 
-            st.markdown("---")
-            if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nk > 0:
-                st.session_state["ek_euro"] = float(tot_nk)
-            st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0, format="%.2f")
+                st.markdown("---")
+                if st.session_state.get("ek_euro", 0.0) == 0.0 and tot_nk > 0:
+                    st.session_state["ek_euro"] = float(tot_nk)
+                st.number_input("Eingesetztes Eigenkapital (€)", key="ek_euro", step=2500.0, format="%.2f")
 
-        with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
-            c_zt1, c_zt2 = st.columns(2)
-            c_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=update_target_from_monat)
-            c_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.5, format="%.2f", on_change=update_target_from_sqm)
-            st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
-            st.markdown("---")
-            st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
-            st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
-            st.slider("Leerstandsquote (%)", 0.0, 10.0, key="vac_rate_pct", step=0.5, format="%.1f %%")
+            with st.expander("3. Zielmiete & Bewirtschaftung", expanded=False):
+                c_zt1, c_zt2 = st.columns(2)
+                c_zt1.number_input("Zielkaltmiete (€/Monat)", key="target_miete_monat", step=50.0, format="%.2f", on_change=update_target_from_monat)
+                c_zt2.number_input("Zielkaltmiete (€/m²)", key="target_sqm", step=0.5, format="%.2f", on_change=update_target_from_sqm)
+                st.number_input("Anpassung in Jahr", key="adj_year", min_value=1, max_value=10)
+                st.markdown("---")
+                st.number_input("Instandhaltung (€/m²/Jahr)", key="inst_sqm", step=1.0, format="%.2f")
+                st.number_input("Verwaltung (€/Monat)", key="mgt_monat", step=5.0, format="%.2f")
+                st.slider("Leerstandsquote (%)", 0.0, 10.0, key="vac_rate_pct", step=0.5, format="%.1f %%")
 
-        with st.expander("4. Steuern & Makro", expanded=False):
-            st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
-            
-            afa_options = [
-                "Linear Standard", 
-                "Degressiv (Paragraph 7 Abs. 5a EStG)", 
-                "Sonder-AfA (Paragraph 7b EStG)", 
-                "Denkmal-AfA (Paragraph 7h/7i EStG)"
-            ]
-            afa_map_to_internal = {
-                "Linear Standard": "1_Linear_Standard",
-                "Degressiv (Paragraph 7 Abs. 5a EStG)": "2_Degressiv_§7_5a",
-                "Sonder-AfA (Paragraph 7b EStG)": "3_Sonder_AfA_§7b",
-                "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i"
-            }
-            afa_map_to_display = {v: k for k, v in afa_map_to_internal.items()}
-            
-            current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
-            current_display = afa_map_to_display.get(current_afa, "Linear Standard")
-            
-            selected_display = st.selectbox("AfA-Modell", afa_options, index=afa_options.index(current_display) if current_display in afa_options else 0)
-            internal_afa_model = afa_map_to_internal[selected_display]
-            st.session_state["afa_model"] = internal_afa_model
-            
-            if internal_afa_model == "1_Linear_Standard":
-                st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
-            
-            st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
-            st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
+            with st.expander("4. Steuern & Makro", expanded=False):
+                st.slider("Grenzsteuersatz (%)", 0.0, 50.0, key="tax_rate_pct", step=1.0, format="%.1f %%")
+                
+                afa_options = [
+                    "Linear Standard", 
+                    "Degressiv (Paragraph 7 Abs. 5a EStG)", 
+                    "Sonder-AfA (Paragraph 7b EStG)", 
+                    "Denkmal-AfA (Paragraph 7h/7i EStG)"
+                ]
+                afa_map_to_internal = {
+                    "Linear Standard": "1_Linear_Standard",
+                    "Degressiv (Paragraph 7 Abs. 5a EStG)": "2_Degressiv_§7_5a",
+                    "Sonder-AfA (Paragraph 7b EStG)": "3_Sonder_AfA_§7b",
+                    "Denkmal-AfA (Paragraph 7h/7i EStG)": "4_Denkmal_§7h_7i"
+                }
+                afa_map_to_display = {v: k for k, v in afa_map_to_internal.items()}
+                
+                current_afa = st.session_state.get("afa_model", "1_Linear_Standard")
+                current_display = afa_map_to_display.get(current_afa, "Linear Standard")
+                
+                selected_display = st.selectbox("AfA-Modell", afa_options, index=afa_options.index(current_display) if current_display in afa_options else 0)
+                internal_afa_model = afa_map_to_internal[selected_display]
+                st.session_state["afa_model"] = internal_afa_model
+                
+                if internal_afa_model == "1_Linear_Standard":
+                    st.number_input("AfA linear (%)", key="afa_lin", step=0.1, format="%.2f", value=st.session_state.get("afa_lin", 2.0))
+                
+                st.number_input("Mietsteigerung p.a. (%)", key="miet_inc", step=0.1, format="%.2f")
+                st.number_input("Wertsteigerung p.a. (%)", key="val_inc", step=0.1, format="%.2f")
 
-        st.divider()
-        
-        btn_col1, btn_col2 = st.columns([1.8, 1])
-        if btn_col1.button("Analyse starten", type="primary", use_container_width=True):
-            st.session_state["trigger_analysis"] = True
-            st.rerun()
-
-        if btn_col2.button("Zurücksetzen", use_container_width=True):
-            reset_input_mask()
-            st.rerun()
+            st.divider()
+            submitted = st.form_submit_button("Analyse starten / aktualisieren", type="primary", use_container_width=True)
+            if submitted:
+                st.session_state["trigger_analysis"] = True
 
     target_sqm_resolved = st.session_state["target_sqm"] if st.session_state["target_sqm"] > 0 else st.session_state["ist_sqm"]
     
@@ -274,7 +249,7 @@ def render_analyse_view(sb_client):
         <div class="valuon-placeholder">
             <h2 style="font-size: 1.6rem; font-weight: 700; color: #13381A; margin-bottom: 10px;">Berechnung ausführen</h2>
             <p style="font-size: 1.05rem; color: #555759; max-width: 620px; margin: 0 auto 15px auto;">
-                Tragen Sie Ihre Objektdaten in der Seitenleiste ein und klicken Sie auf <b>"Analyse starten"</b>.
+                Tragen Sie Ihre Objektdaten in der Seitenleiste ein und klicken Sie auf <b>"Analyse starten / aktualisieren"</b>.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -318,19 +293,19 @@ def render_analyse_view(sb_client):
             strat = STRATEGIES[st.session_state.get("selected_strategy_name", "Konservativ / Ausgewogen (Standard)")]
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
-            val_roe = (df_proj.loc[0, 'CF n. St.'] / ek_abs) * 100 if ek_abs > 0 else 0
             
-            kfw_amt_val = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])
-            hb_loan_val = max(0.0, fk_tot - kfw_amt_val)
-            hb_annu = hb_loan_val * ((st.session_state["hb_zins"] + st.session_state["hb_tilg"]) / 100)
-            kfw_annu = kfw_amt_val * ((st.session_state["kfw_zins"] + st.session_state["kfw_tilg"]) / 100)
-            val_dscr = df_proj.loc[0, 'NOI'] / (hb_annu + kfw_annu) if (hb_annu + kfw_annu) > 0 else 1.0
+            # Berechnungen für den echten 10-Jahres-Gewinn & echte Gesamtrendite (IRR)
+            horiz_len = min(10, len(df_proj))
+            nav_10y = df_proj.iloc[horiz_len - 1]['NAV']
+            cum_cf_10y = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
+            net_profit_10y = nav_10y - ek_abs + cum_cf_10y
+            val_irr = irr * 100  # Echte Gesamtrendite p.a. inkl. Tilgung & Wertsteigerung
 
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(f'<div class="metric-card metric-{get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])[0]}"><div class="metric-title">Cashflow netto</div><div class="metric-value">{fmt_de(val_cf, 2)} €/M</div></div>', unsafe_allow_html=True)
             c2.markdown(f'<div class="metric-card metric-{get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])[0]}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{fmt_pct(val_rendite)}</div></div>', unsafe_allow_html=True)
-            c3.markdown(f'<div class="metric-card metric-{get_metric_status(val_roe, strat["target_roe"], strat["tol_roe"])[0]}"><div class="metric-title">EK-Rendite</div><div class="metric-value">{fmt_pct(val_roe)}</div></div>', unsafe_allow_html=True)
-            c4.markdown(f'<div class="metric-card metric-{get_metric_status(val_dscr, strat["target_dscr"], strat["tol_dscr"])[0]}"><div class="metric-title">DSCR</div><div class="metric-value">{fmt_de(val_dscr, 2)}</div></div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="metric-card metric-green"><div class="metric-title">Gesamtgewinn (10 J.)</div><div class="metric-value">{fmt_eur(net_profit_10y)}</div></div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="metric-card metric-green"><div class="metric-title">EK-Rendite p.a. (IRR)</div><div class="metric-value">{fmt_pct(val_irr)}</div></div>', unsafe_allow_html=True)
 
             tab_dash, tab_plan = st.tabs(["Executive Dashboard", "Liquiditätsverlauf & Tilgung"])
             with tab_dash:
@@ -372,6 +347,9 @@ def render_analyse_view(sb_client):
                 with col_chart2:
                     st.markdown("### Kapitalstruktur (Initial)")
                     st.markdown("<div style='height: 38px;'></div>", unsafe_allow_html=True)
+                    
+                    kfw_amt_val = max(0, st.session_state["kfw_amt"] - st.session_state["kfw_grant"])
+                    hb_loan_val = max(0.0, fk_tot - kfw_amt_val)
                     
                     fig_pie = px.pie(
                         names=['Eigenkapital', 'Hausbank-Darlehen', 'KfW-Darlehen'], 
