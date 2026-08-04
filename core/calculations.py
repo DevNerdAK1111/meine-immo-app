@@ -38,19 +38,17 @@ def calc_projection(data, full_repayment=False):
     folge_tilg = data.get('folge_tilg', hb_tilg_init)
     sondertilg_input = data.get('sondertilg', 0.0)
     
-    # Flexible Capex Liste einlesen
     capex_list = data.get('capex_list', [])
     
-    # Anfängliche Annuität Phase 1
     hb_annuity_init = hb_loan_init * (hb_zins_init + hb_tilg_init)
     
-    # Gebäudeanteil & AfA
     grund_anteil = data.get('grund_anteil', 0.20)
-    geb_wert = (kp + sanierung) * (1.0 - grund_anteil)
-    afa_lin = data.get('afa_lin', 0.02)
-    afa_annual = geb_wert * afa_lin
+    geb_wert = kp * (1.0 - grund_anteil)
+    afa_model = data.get('afa_model', '1_Linear_Standard')
+    afa_lin_rate = data.get('afa_lin', 0.02)
     
-    # Miete & Kosten Startwerte
+    book_value = geb_wert + sanierung
+    
     qm = data['qm']
     ist_miete_monat = data['ist_sqm'] * qm
     target_miete_monat = data['target_sqm'] * qm
@@ -75,10 +73,11 @@ def calc_projection(data, full_repayment=False):
     y = 0
     max_years = 50 if full_repayment else 10
     
+    first_year_afa = 0.0
+    
     while True:
         y += 1
         
-        # 1. Zins & Tilgung bestimmen
         if y <= zinsbindung:
             curr_hb_zins = hb_zins_init
             curr_hb_annuity = hb_annuity_init
@@ -108,7 +107,6 @@ def calc_projection(data, full_repayment=False):
         tot_tilg = hb_tilg_year + kfw_tilg_year
         tot_rest = hb_rest + kfw_rest
         
-        # 2. Mieteinnahmen
         if y < adj_year:
             m_monat = ist_miete_monat
         else:
@@ -117,26 +115,54 @@ def calc_projection(data, full_repayment=False):
         gross_rent = m_monat * 12
         net_rent = gross_rent * (1.0 - vac_rate)
         
-        # 3. Bewirtschaftungskosten & Flexible Capex für dieses Jahr
         cost_factor = (1.0 + cost_inc) ** (y - 1)
         inst = inst_annual_base * cost_factor
         mgt = mgt_annual_base * cost_factor
         hg_nr = hausgeld_non_reimb_base * cost_factor
         tot_costs = inst + mgt + hg_nr
         
-        # Prüfen, ob in diesem Jahr eine Sonderinvestition (Capex) anliegt
         year_capex = sum([item['betrag'] for item in capex_list if item['jahr'] == y])
         
         noi = net_rent - tot_costs
-        # Capex reduziert den Cashflow vor Steuern im jeweiligen Jahr direkt
         cf_v_st = noi - (tot_zins + tot_tilg) - year_capex
         
-        # 4. Steuern
+        # Exakte AfA-Berechnung inkl. Kombination degressiv + Sonder-AfA
+        if afa_model == "1_Linear_Standard":
+            afa_annual = (geb_wert + sanierung) * afa_lin_rate
+        elif afa_model == "2_Degressiv_§7_5a":
+            total_life = max(1, int(round(100 / (afa_lin_rate * 100))))
+            remaining_life = max(1, total_life - (y - 1))
+            afa_deg = book_value * 0.05
+            afa_lin_equiv = book_value / remaining_life
+            afa_annual = max(afa_deg, afa_lin_equiv)
+            book_value = max(0.0, book_value - afa_annual)
+        elif afa_model == "3_Sonder_AfA_§7b":
+            base_lin = (geb_wert + sanierung) * afa_lin_rate
+            sonder = (geb_wert + sanierung) * 0.05 if y <= 4 else 0.0
+            afa_annual = base_lin + sonder
+        elif afa_model == "4_Denkmal_§7h_7i":
+            base_lin = geb_wert * afa_lin_rate
+            denkmal_san = (sanierung * 0.09 if y <= 8 else (sanierung * 0.07 if y <= 12 else 0.0))
+            afa_annual = base_lin + denkmal_san
+        elif afa_model == "5_Degressiv_plus_Sonder":
+            total_life = max(1, int(round(100 / (afa_lin_rate * 100))))
+            remaining_life = max(1, total_life - (y - 1))
+            afa_deg = book_value * 0.05
+            afa_lin_equiv = book_value / remaining_life
+            current_deg = max(afa_deg, afa_lin_equiv)
+            sonder = (geb_wert + sanierung) * 0.05 if y <= 4 else 0.0
+            afa_annual = current_deg + sonder
+            book_value = max(0.0, book_value - afa_annual)
+        else:
+            afa_annual = (geb_wert + sanierung) * afa_lin_rate
+
+        if y == 1:
+            first_year_afa = afa_annual
+
         taxable_income = noi - tot_zins - afa_annual
         tax = taxable_income * tax_rate
         cf_n_st = cf_v_st - tax
         
-        # 5. Wertentwicklung & Exit
         obj_val = obj_val * (1.0 + val_inc)
         exit_cost_eur = obj_val * exit_cost_pct
         nav_gross = obj_val - tot_rest
@@ -186,4 +212,4 @@ def calc_projection(data, full_repayment=False):
         
     ek_quote_calc = (ek_abs / tot_inv) if tot_inv > 0 else 0.0
     
-    return df_proj, tot_inv, ek_abs, fk_tot, irr, afa_annual, ek_quote_calc
+    return df_proj, tot_inv, ek_abs, fk_tot, irr, first_year_afa, ek_quote_calc
