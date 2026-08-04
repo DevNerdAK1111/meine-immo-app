@@ -65,7 +65,6 @@ def render_analyse_view(sb_client):
 
         st.divider()
         
-        # Formularklammer entfernt! Ab hier ganz normale Inputs.
         st.markdown("### Parametrisierung")
         with st.expander("1. Objektdaten (Exposé)", expanded=True):
             st.text_input("Objektbezeichnung", key="obj_name")
@@ -303,27 +302,20 @@ def render_analyse_view(sb_client):
             val_cf = df_proj.loc[0, 'CF n. St.'] / 12
             val_rendite = df_proj.loc[0, 'Bruttomietrendite'] * 100
             
-            # Berechnungen für den echten 10-Jahres-Gewinn & echte Gesamtrendite (IRR)
-            horiz_len = min(10, len(df_proj))
-            nav_10y_net = df_proj.iloc[horiz_len - 1]['NAV (nach Exit)']
-            exit_cost_10y = df_proj.iloc[horiz_len - 1]['Exit-Kosten']
-            cum_cf_10y = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
-            net_profit_10y = nav_10y_net - ek_abs + cum_cf_10y
+            # Berechnungen für den echten Gewinn & Gesamtrendite (IRR)
+            horiz_len = min(10, len(df_proj)) if not full_rep else len(df_proj)
+            nav_net_end = df_proj.iloc[horiz_len - 1]['NAV (nach Exit)']
+            cum_cf_end = df_proj.iloc[:horiz_len]['CF n. St.'].sum()
+            net_profit_total = nav_net_end - ek_abs + cum_cf_end
             val_irr = irr * 100
 
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(f'<div class="metric-card metric-{get_metric_status(val_cf, strat["target_cf"], strat["tol_cf"])[0]}"><div class="metric-title">Cashflow netto</div><div class="metric-value">{fmt_de(val_cf, 2)} €/M</div></div>', unsafe_allow_html=True)
             c2.markdown(f'<div class="metric-card metric-{get_metric_status(val_rendite, strat["target_rendite"], strat["tol_rendite"])[0]}"><div class="metric-title">Bruttomietrendite</div><div class="metric-value">{fmt_pct(val_rendite)}</div></div>', unsafe_allow_html=True)
             
-            # Kachel 3 mit explizitem Hinweis auf abgezogene Exit-Kosten
-            c3.markdown(f'''
-            <div class="metric-card metric-green">
-                <div class="metric-title">Gesamtgewinn (10 J.)</div>
-                <div class="metric-value">{fmt_eur(net_profit_10y)}</div>
-                <div style="font-size: 0.72rem; color: #777; margin-top: 3px;">nach {fmt_eur(exit_cost_10y)} Exit-Kosten</div>
-            </div>
-            ''', unsafe_allow_html=True)
-            
+            # Sauber ohne extra Zeile unter dem Wert
+            profit_label = f"Gesamtgewinn ({horiz_len} J.)"
+            c3.markdown(f'<div class="metric-card metric-green"><div class="metric-title">{profit_label}</div><div class="metric-value">{fmt_eur(net_profit_total)}</div></div>', unsafe_allow_html=True)
             c4.markdown(f'<div class="metric-card metric-green"><div class="metric-title">EK-Rendite p.a. (IRR)</div><div class="metric-value">{fmt_pct(val_irr)}</div></div>', unsafe_allow_html=True)
 
             tab_dash, tab_plan = st.tabs(["Executive Dashboard", "Liquiditätsverlauf & Tilgung"])
@@ -458,7 +450,6 @@ def render_analyse_view(sb_client):
                     }))
                     
                 with sub_t3:
-                    # Explizite Anzeige von Marktwert, Exit-Kosten und Netto-EK
                     cols_3 = ["Jahr", "Objektwert", "Restschuld", "Netto-EK (vor Exit)", "Exit-Kosten", "Netto-EK (nach Exit)", "Beleihungsauslauf (LTV)"]
                     df_s3 = df_display[cols_3].copy()
                     df_s3["Jahr"] = df_s3["Jahr"].astype(str)
