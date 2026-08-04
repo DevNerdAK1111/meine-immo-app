@@ -68,7 +68,7 @@ def calc_projection(data, full_repayment=False):
     
     hb_rest = hb_loan_init
     kfw_rest = kfw_amt
-    obj_val = kp
+    obj_val = kp + sanierung
     
     rows = []
     y = 0
