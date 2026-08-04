@@ -19,29 +19,26 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Globaler Scroll-Fix & CSS gegen Hänger an Rändern und in Zahlenfeldern
+# Globales CSS für Layout-Breite (macht die Mitte bei geschlossener Sidebar breit & fluid)
 st.markdown("""
 <style>
-    /* 1. Verhindert das Hängenbleiben am oberen/unteren Rand der Sidebar und des Hauptbereichs */
+    /* Hauptcontainer verbreitern, damit er bei geschlossener Sidebar dynamisch mitwächst */
+    .block-container {
+        max-width: 92% !important;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+    }
+
+    /* Scroll-Optimierung für Sidebar und Hauptbereich */
     section[data-testid="stSidebar"], .main {
         overscroll-behavior: none !important;
     }
-
-    /* 2. Erzwingt sauberes Scrollen in der Sidebar */
     section[data-testid="stSidebar"] > div:first-child {
         overflow-y: auto !important;
         overflow-x: hidden !important;
         height: 100vh;
-    }
-
-    /* 3. Verhindert, dass das Mausrad über Zahlenfeldern Werte verändert und das Scrollen blockiert */
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { 
-        -webkit-appearance: none; 
-        margin: 0; 
-    }
-    input[type=number] {
-        -moz-appearance: textfield;
     }
 </style>
 """, unsafe_allow_html=True)
